@@ -1,0 +1,17 @@
+services:
+  # The LogDog doesn't run as a standalone service yet (it's a library),
+  # but we define the shared volume and a mock service to test the kennel.
+  log-tester:
+    image: python:3.11-slim
+    container_name: farm_log_tester
+    volumes:
+      # This is the "Kennel" - the shared ground for all logs
+      - ${FARM_ROOT_PATH}/farm_logs:/app/farm_logs
+    env_file: .env
+    environment:
+      - FARM_ROOT_PATH=/app
+    command: ["echo", "LogDog Kennel is ready and mounted at ${FARM_ROOT_PATH}/farm_logs"]
+
+networks:
+  farm-network:
+    driver: bridge

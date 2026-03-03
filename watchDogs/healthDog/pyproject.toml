@@ -1,0 +1,48 @@
+[project]
+name = "gingilla-farm-healthdog"
+version = "0.1.0"
+description = "The HealthDog admin tool for Gingilla Farm code quality and testing."
+requires-python = ">=3.12"
+
+[tool.ruff]
+# The path where Ruff starts sniffing (points to the root of the farm)
+src = ["../../"]
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+# E: Error, F: Pyflakes, I: Isort (import sorting), N: Naming conventions
+select = ["E", "F", "I", "N", "PL"]
+ignore = ["E501"] # Ignore line length errors (handled by formatter)
+
+[tool.ruff.lint.isort]
+known-first-party = ["apps", "watchDogs"]
+
+[tool.mypy]
+# MyPy ensures the "soil" (types) are correct
+python_version = "3.12"
+strict = true
+ignore_missing_imports = true
+# Tell MyPy to check the whole farm from this subfolder
+mypy_path = "../../"
+
+[tool.pytest.ini_options]
+# HealthDog's testing configuration
+testpaths = ["../../tests", "../../apps"]
+python_files = "test_*.py"
+python_functions = "test_*"
+# Add coverage to see which parts of the farm are "watered"
+addopts = "--cov=../../apps --cov-report=term-missing"
+
+[tool.coverage.run]
+omit = [
+    "*/tests/*",
+    "*/migrations/*",
+    "*/.venv/*",
+]
+
+[tool.healthdog]
+# Custom section for your HealthDog admin script logic
+log_to_db = true
+db_table = "health_dog_logs"
+check_hebrew_in_comments = true

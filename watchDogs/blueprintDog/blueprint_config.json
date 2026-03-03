@@ -1,0 +1,13 @@
+{
+    "ignore_list": [
+        ".git", ".idea", "__pycache__", "node_modules",
+        "venv", ".venv", ".pytest_cache"
+    ],
+    "exempt_docker": [
+        "infra", "assets", "scripts", "logs", "docs",
+        "database_configs", "watchDogs", "tempServer/*" ,"blueprintDog/*" ,"blueprintDog"
+    ],
+    "exempt_readme": [
+        "logs", "temp", "database_configs", "assets/*" ,"logDog/*", "tempServer/*" , "blueprintDog/*"
+    ]
+}

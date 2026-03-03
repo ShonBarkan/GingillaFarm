@@ -1,126 +1,158 @@
-const winston = require('winston');
-require('winston-daily-rotate-file');
-const path = require('path');
-const fs = require('fs');
-require('dotenv').config();
+import winston from 'winston';
+import DailyRotateFile from 'winston-daily-rotate-file';
+import path from 'path';
+import { z } from 'zod';
+import dotenv from 'dotenv';
+import { blue, cyan, green, yellow, red, bgRed, white, reset } from 'colorette';
+
+dotenv.config();
 
 // --- PATH INITIALIZATION ---
-const FARM_ROOT = process.env.FARM_ROOT_PATH || __dirname;
-const LOG_DIR = path.join(FARM_ROOT, 'farm_logs');
+const FARM_ROOT = process.env.FARM_ROOT_PATH || "./";
+const LOG_DIR = path.join(FARM_ROOT, "farm_logs");
 
-// Create directory if not exists
-if (!fs.existsSync(LOG_DIR)) {
-    fs.mkdirSync(LOG_DIR, { recursive: true });
-}
-
-// --- UI CONSTANTS ---
-const STATUS_WIDTH = 11;
-const PROJECT_LIMIT = 11;
-const CONTEXT_LIMIT = 11;
-const SUMMARY_LIMIT = 25;
-
-// --- COLOR CONFIG ---
-const COLORS = {
-    debug: '\x1b[94m',
-    info: '\x1b[92m',
-    warn: '\x1b[93m',
-    error: '\x1b[91m',
-    critical: '\x1b[41m',
-    reset: '\x1b[0m'
+// --- CUSTOM LOG LEVELS ---
+const customLevels = {
+  levels: {
+    critical: 0,
+    error: 1,
+    warning: 2,
+    success: 3, // Custom level
+    info: 4,
+    debug: 5,
+  },
+  colors: {
+    critical: 'bgRed',
+    error: 'red',
+    warning: 'yellow',
+    success: 'green',
+    info: 'cyan',
+    debug: 'blue',
+  }
 };
 
-const dogFormat = winston.format.printf(({ level, message, project_name, traceID, context, ...extras }) => {
-    const logTime = new Date().toLocaleTimeString('en-GB', { hour12: false });
-
-    // 1. Status Block (Centered & Colored)
-    const upperLevel = level.toUpperCase();
-    const color = COLORS[level] || COLORS.reset;
-    const statusText = upperLevel.padStart(Math.floor((STATUS_WIDTH + upperLevel.length) / 2)).padEnd(STATUS_WIDTH);
-    const coloredStatus = `${color}[${statusText}]${COLORS.reset}`;
-
-    // 2. Project Name (Fixed Width)
-    const proj = project_name || 'Unknown';
-    const fmtProj = proj.length > PROJECT_LIMIT ? proj.substring(0, PROJECT_LIMIT - 2) + '..' : proj.padEnd(PROJECT_LIMIT);
-
-    // 3. Context Tag (Centered)
-    const ctx = context || '---';
-    const fmtCtx = ctx.length > CONTEXT_LIMIT ? ctx.substring(0, CONTEXT_LIMIT - 2) + '..' :
-                  ctx.padStart(Math.floor((CONTEXT_LIMIT + ctx.length) / 2)).padEnd(CONTEXT_LIMIT);
-
-    // 4. Summary Message
-    const sumMsg = message.length > SUMMARY_LIMIT ? message.substring(0, SUMMARY_LIMIT - 3) + '...' : message.padEnd(SUMMARY_LIMIT);
-
-    // 5. Metadata Assembly
-    const metadata = {
-        traceID: traceID || 'N/A',
-        context: ctx,
-        project: proj,
-        message: message
-    };
-    if (Object.keys(extras).length > 0) metadata.details = extras;
-
-    return `${coloredStatus}[${logTime}][${fmtProj}][${fmtCtx}] ${sumMsg}, ${JSON.stringify(metadata)}`;
+// --- DATA MODELS (The Farm Guardrails via Zod) ---
+const BaseLogSchema = z.object({
+  context: z.string().default("---"),
+  traceID: z.string().optional(),
 });
 
-const setupLogDog = (projectName) => {
-    return winston.createLogger({
-        level: 'debug',
-        levels: { critical: 0, error: 1, warn: 2, info: 3, debug: 4 },
-        format: winston.format.combine(
-            winston.format((info) => { info.project_name = projectName; return info; })(),
-            dogFormat
-        ),
-        transports: [
-            // 1. Console Output
-            new winston.transports.Console(),
-            // 2. Daily File Output
-            new winston.transports.DailyRotateFile({
-                dirname: LOG_DIR,
-                filename: `logs-%DATE%.log`,
-                datePattern: 'YYYY-MM-DD',
-                maxFiles: '14d'
-            })
-        ]
-    });
+const TestLogSchema = BaseLogSchema.extend({
+  test_name: z.string(),
+  file_name: z.string(),
+  expected: z.any().default("N/A"),
+  got: z.any().default("N/A"),
+});
+
+const APILogSchema = BaseLogSchema.extend({
+  method: z.string(),
+  endpoint: z.string(),
+  status_code: z.number().optional(),
+  traceID: z.string(),
+});
+
+// --- FORMATTER LOGIC ---
+const STATUS_WIDTH = 12;
+const PROJECT_LIMIT = 12;
+const CONTEXT_LIMIT = 12;
+const TRACE_WIDTH = 12;
+const SUMMARY_LIMIT = 25;
+
+const colorMap = {
+  debug: blue,
+  info: cyan,
+  success: green,
+  warning: yellow,
+  error: red,
+  critical: (str) => bgRed(white(str)),
 };
 
-// --- EXAMPLES ---
-if (require.main === module) {
-    console.log("*".repeat(50));
-    console.log(`Log Directory: ${LOG_DIR}`);
-    console.log("*".repeat(50));
+const farmFormat = winston.format.printf(({ level, message, timestamp, ...metadata }) => {
+  const projectName = metadata.projectName || "Unknown";
+  const logType = metadata.logType || "default";
 
-    const dog = setupLogDog("Skyscraper");
+  // Padding & Truncating
+  const fmtProj = `[${projectName.substring(0, PROJECT_LIMIT).padEnd(PROJECT_LIMIT)}]`;
+  const colorizer = colorMap[level] || reset;
+  const status = colorizer(`[${level.toUpperCase().padEnd(STATUS_WIDTH)}]`);
+  const logTime = timestamp.split('T')[1].split('.')[0]; // HH:mm:ss
+  const fileName = metadata.file_name || "main.js";
 
-    // 1. API - GET
-    dog.info("User fetched quiz list", { traceID: 'req-101', context: 'GET' });
+  let baseLine = "";
+  const tid = metadata.traceID || "----------";
+  const fmtTid = `[${tid.padEnd(TRACE_WIDTH)}]`;
 
-    // 2. React - Component
-    dog.debug("Option 'B' selected", { traceID: 'ui-45', context: 'QuizCard' });
+  // Type-Specific Formatting
+  if (logType === "test") {
+    const result = TestLogSchema.safeParse(metadata);
+    if (result.success) {
+      const data = result.data;
+      baseLine = `${status}[${logTime}]${fmtProj}${fmtTid}[${fileName}][TEST:${data.test_name}] ${message}`;
+      if (!['info', 'success'].includes(level)) {
+        baseLine += ` | Expected: ${data.expected} | Got: ${data.got}`;
+      }
+    }
+  } else if (logType === "api") {
+    const result = APILogSchema.safeParse(metadata);
+    if (result.success) {
+      const data = result.data;
+      baseLine = `${status}[${logTime}]${fmtProj}${fmtTid}[${fileName}][${data.method}][${data.endpoint}] (${data.status_code || '??'}) ${message}`;
+    }
+  }
 
-    // 3. Database
-    dog.warn("Query took 1.2 seconds", { traceID: 'db-99', context: 'Postgres', table: 'questions' });
+  // Default fallback
+  if (!baseLine) {
+    const ctx = (metadata.context || "---").toString();
+    const fmtCtx = ctx.length > CONTEXT_LIMIT ? `${ctx.substring(0, CONTEXT_LIMIT - 3)}...` : ctx.padEnd(CONTEXT_LIMIT);
+    const sumMsg = message.length > SUMMARY_LIMIT ? `${message.substring(0, SUMMARY_LIMIT - 3)}...` : message.padEnd(SUMMARY_LIMIT);
+    baseLine = `${status}[${logTime}]${fmtProj}${fmtTid}[${fileName}][${fmtCtx}] ${sumMsg}`;
+  }
 
-    // 4. Security
-    dog.error("Invalid credentials", { traceID: 'sec-00', context: 'AuthGuard', ip: '1.2.3.4' });
+  // Clean metadata from internal keys before stringifying extra JSON
+  const { projectName: _, logType: __, file_name: ___, traceID: ____, context: _____, ...extra } = metadata;
+  const extraJson = Object.keys(extra).length ? ` ${JSON.stringify(extra)}` : "";
 
-    // 5. Docker
-    dog.log('critical', "Container stopped", { traceID: 'sys-1', context: 'Docker', container: 'pi-hole' });
+  return `${baseLine}${extraJson}`;
+});
 
-    // 6. State Update
-    dog.info("Score updated: 85%", { traceID: 'ui-46', context: 'ScoreBoard', user: 'Itai' });
-
-    // 7. API - POST
-    dog.info("New quiz created", { traceID: 'req-102', context: 'POST', quiz_id: 505 });
-
-    // 8. Background
-    dog.debug("Log rotation complete", { traceID: 'maint-1', context: 'CleanDog', deleted_files: 12 });
-
-    // 9. Nextcloud
-    dog.warn("File locked by user", { traceID: 'cloud-2', context: 'Nextcloud', file: 'config.php' });
-
-    // 10. Long Message
-    dog.info("This is a test of the automatic truncation logic for long strings", { traceID: 'test-long', context: 'TestRunner' });
+// --- SETUP FUNCTION ---
+export function setupLogDog(projectName, logType = "default") {
+  return winston.createLogger({
+    levels: customLevels.levels,
+    level: 'debug',
+    format: winston.format.combine(
+      winston.format.timestamp(),
+      winston.format.metadata({ fillExcept: ['message', 'level', 'timestamp'] }),
+      farmFormat
+    ),
+    defaultMeta: { projectName, logType },
+    transports: [
+      new winston.transports.Console(),
+      new DailyRotateFile({
+        dirname: LOG_DIR,
+        filename: 'logs-%DATE%.log',
+        datePattern: 'YYYY-MM-DD',
+        zippedArchive: true,
+        maxSize: '20m',
+        maxFiles: '14d'
+      })
+    ]
+  });
 }
 
-module.exports = setupLogDog;
+// --- DEMO ---
+const dog = setupLogDog("Gingilla");
+dog.success("Database connection established", { traceID: 'DB-INIT', context: 'Postgres', pool_size: 10 });
+dog.info("Monitoring system heartbeat", { traceID: 'SYS-HBT', context: 'Grafana', uptime: '48h' });
+
+const apiDog = setupLogDog("Gingilla", "api");
+apiDog.info("Fetching carrot data", { traceID: 'REQ-777', method: 'GET', endpoint: '/farm/carrots', user_id: 42 });
+
+const testDog = setupLogDog("Gingilla", "test");
+testDog.error("Assertion Error in math module", {
+    test_name: 'MATH_ADD',
+    file_name: 'test_core.js',
+    expected: 4,
+    got: 5,
+    traceID: 'TEST-02'
+});

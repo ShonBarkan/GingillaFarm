@@ -18,10 +18,10 @@ In our farm, many inhabitants (scripts and services) live and work together in h
 
 > *The vigilant guardians of the farm, these admin scripts handle the "dirty work" of logging, health checks, and system integrity etc.*
 
-| Name | Character                                                                                  | Duty | Catchphrase | Link                                               |
-|------|--------------------------------------------------------------------------------------------|------|-------------|----------------------------------------------------|
-| **LogDog** | <!-- OR --> <br> <img src="assets/watchdogs/logdog.png" width="100" alt="LogDog">          | Sniffs out every API call and system error across Python and Node.js. | "A sharp bark for every spark." | [View Documentation](./watchDogs/logDog/README.md) |
-| **HealthDog** | <!-- OR --> <br> <img src="assets/watchdogs/HealthDog.png" width="100" alt="HealthDog">    | Checks database heartbeats and service availability every morning. | "A farm is only as strong as its fences." | [View Documentation](./watchDogs//healthDog/README.md)        |
+| Name | Character                                                                                     | Duty | Catchphrase | Link                                               |
+|------|-----------------------------------------------------------------------------------------------|------|-------------|----------------------------------------------------|
+| **LogDog** | <!-- OR --> <br> <img src="assets/watchdogs/logDog.png" width="100" alt="LogDog">             | Sniffs out every API call and system error across Python and Node.js. | "A sharp bark for every spark." | [View Documentation](./watchDogs/logDog/README.md) |
+| **HealthDog** | <!-- OR --> <br> <img src="assets/watchdogs/HealthDog.png" width="100" alt="HealthDog">       | Checks database heartbeats and service availability every morning. | "A farm is only as strong as its fences." | [View Documentation](./watchDogs//healthDog/README.md)        |
 | **BlueprintDog** | <!-- OR --> <br> <img src="assets/watchdogs/blueprintDog.png" width="100" alt="BlueprintDog"> | Builds new services and inspects structures for Docker and Lore compliance. | "Measure twice, bark once." | [View Documentation](./watchDogs//blueprintDog/README.md)     |
 
 ### 🏗️ The Buildings

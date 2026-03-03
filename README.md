@@ -3,7 +3,7 @@
 Welcome to the heart of the farm. This ecosystem is managed by **Gingilla**, the ginger chinchilla, ensuring every service and script works in perfect harmony.
 
 ---
-![gate](/assets/gate.png)
+<img src="/assets/gate.png" alt="gate" width="500" />
 
 ## 🌾 The Story of the Farm
 Welcome to **Gingilla Farm**. This is not just a server farm; it is a living ecosystem where every line of code is a seed planted, and every container is a sturdy structure in the field.
@@ -15,20 +15,34 @@ In our farm, many inhabitants (scripts and services) live and work together in h
 ## 👥 Meet the Inhabitants
 
 ### 🐕 The WatchDogs
-*Administrative scripts for logging, health checks, and testing.*
-* **[TBD]**
+
+> *The vigilant guardians of the farm, these admin scripts handle the "dirty work" of logging, health checks, and system integrity etc.*
+
+| WatchDog | Description | Technical Link                                     |
+| :--- | :--- |:---------------------------------------------------|
+| **LogDog** | The loyal hounds sniffing out every event, ensuring unified, color-coded logging across all buildings. | [View Documentation](./watchDogs/logDog/README.md) |
 
 ### 🏗️ The Buildings
-*Core services and microservices.*
+> *ore services and microservices.*
 * **Infrastructure:** The foundation of the farm. 
   * **[TBD]**
 * **Apps:** Specialized services.
 * * **[TBD]**
 
 ---
+## 🗺️ Navigate Map (Structure)
+
+```text
+GingillaFarm/
+├── .env.example             # Central configuration
+├── docker-compose.yml       # The Farm's infrastructure blueprint
+├── README.md                # Main Farm documentation
+└── watchDogs/               # Admin scripts handle the "dirty work"
+```
+---
 
 ## ⚖️ Core Rules
-To keep the farm flourishing, every new inhabitant or building must follow these rules:
+> *To keep the farm flourishing, every new inhabitant or building must follow these rules:*
 
 1.  **Deployment:** Everything must be containerized using **Docker** and **docker-compose**.
 2.  **Localization (i18n):** Frontends must support an **English/Hebrew** toggle with full **RTL/LTR** support.
@@ -39,8 +53,54 @@ To keep the farm flourishing, every new inhabitant or building must follow these
 
 ## 🚜 Quick Start
 
-**[TBD]**
+
+> *Follow these steps to set up the Gingilla Farm environment and deploy the first WatchDogs.*
+
+
+## 1️⃣ Prepare the Soil (Environment)
+
+Clone the repository and initialize your central configuration.
+
+```bash
+git clone https://github.com/your-username/GingillaFarm.git
+cd GingillaFarm
+cp .env.example .env
+```
+
+**Important:**  
+Edit the `.env` file and set `FARM_ROOT_PATH` to your current directory path to ensure logs are stored correctly.
 
 ---
 
-*“”* – **Gingilla** 🐾
+## 2️⃣ Summon the Hounds (Infrastructure)
+
+Initialize the farm's base layer. This sets up the shared volumes and the initial logging environment.
+
+```bash
+docker-compose up -d
+```
+
+---
+
+## 3️⃣ Verify the Perimeter
+
+Check that the LogDog is ready to track events across the farm.
+
+```bash
+# Ensure the log directory was created
+ls ./farm_logs
+```
+
+---
+
+# 🛠️ Prerequisites
+
+To run the farm buildings and WatchDogs, you need the following tools installed:
+
+- **Docker & Docker Compose** — The farm's foundation  
+- **Python 3.10+** — For Python-based WatchDogs  
+- **Node.js 18+** — For JavaScript-based services  
+
+---
+
+*“Stay Fluffy, Code Sharp.”* – **Gingilla** 🐾

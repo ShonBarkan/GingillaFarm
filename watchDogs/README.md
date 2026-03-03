@@ -6,11 +6,11 @@ Welcome to the Kennel. The WatchDogs are the administrative guardians of the Gin
 
 ## 🐾 The Pack at a Glance
 
-| Name | Character                                                                                        | Duty | Catchphrase | Link                                           |
-|------|--------------------------------------------------------------------------------------------------|------|-------------|------------------------------------------------|
-| **LogDog** | <!-- OR --> <br> <img src="../assets/watchdogs/logdog.png" width="100" alt="LogDog">             | Sniffs out every API call and system error across Python and Node.js. | "A sharp bark for every spark." | [View Documentation](./logDog/README.md)       |
-| **HealthDog** | <!-- OR --> <br> <img src="../assets/watchdogs/HealthDog.png" width="100" alt="HealthDog">       | Checks database heartbeats and service availability every morning. | "A farm is only as strong as its fences." | [View Documentation](./healthDog/README.md)    |
-| **BlueprintDog** | <!-- OR --> <br> <img src="../assets/watchdogs/blueprintDog.png" width="100" alt="BlueprintDog"> | Builds new services and inspects structures for Docker and Lore compliance. | "Measure twice, bark once." | [View Documentation](./blueprintDog/README.md) |
+| Name | Character                                                                                      | Duty | Catchphrase | Link                                           |
+|------|------------------------------------------------------------------------------------------------|------|-------------|------------------------------------------------|
+| **LogDog** | <!-- OR --> <br> <img src="./assets/watchdogs/logdog.png" width="100" alt="LogDog">            | Sniffs out every API call and system error across Python and Node.js. | "A sharp bark for every spark." | [View Documentation](./logDog/README.md)       |
+| **HealthDog** | <!-- OR --> <br> <img src="./assets/watchdogs/HealthDog.png" width="100" alt="HealthDog">      | Checks database heartbeats and service availability every morning. | "A farm is only as strong as its fences." | [View Documentation](./healthDog/README.md)    |
+| **BlueprintDog** | <!-- OR --> <br> <img src="./assets/watchdogs/blueprintDog.png" width="100" alt="BlueprintDog"> | Builds new services and inspects structures for Docker and Lore compliance. | "Measure twice, bark once." | [View Documentation](./blueprintDog/README.md) |
 
 ---
 

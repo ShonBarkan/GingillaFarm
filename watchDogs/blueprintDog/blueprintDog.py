@@ -165,7 +165,8 @@ class BlueprintDog:
 
 # --- EXECUTION ---
 if __name__ == "__main__":
-    dog = BlueprintDog(r'C:\Shon\gitHub\GingillaFarm\watchDogs\blueprintDog')
+    dog = BlueprintDog(r'C:\Shon\gitHub\GingillaFarm\buildings')
     # dog.create_building("BON_SERVER", building_type="python_server")
-    dog.run_audit()
-    dog.print_report()
+    dog.create_building("BON_FRONT", building_type="frontend")
+    # dog.run_audit()
+    # dog.print_report()

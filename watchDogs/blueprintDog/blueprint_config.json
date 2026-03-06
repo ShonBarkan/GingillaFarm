@@ -5,9 +5,9 @@
     ],
     "exempt_docker": [
         "infra", "assets", "scripts", "logs", "docs",
-        "database_configs", "watchDogs", "tempServer/*" ,"blueprintDog/*" ,"blueprintDog"
+        "database_configs", "watchDogs", "tempServer/*" ,"blueprintDog/*" ,"blueprintDog" , "buildings"
     ],
     "exempt_readme": [
-        "logs", "temp", "database_configs", "assets/*" ,"logDog/*", "tempServer/*" , "blueprintDog/*"
+        "logs", "temp", "database_configs", "assets/*" ,"watchDogs/logDog/*", "tempServer/*" , "watchDogs/blueprintDog/*"
     ]
 }

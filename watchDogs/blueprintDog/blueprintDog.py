@@ -6,20 +6,6 @@ from watchDogs.blueprintDog.blueprints.WatchDogBlueprint import WatchDogBlueprin
 from watchDogs.blueprintDog.blueprints.PythonServerBlueprint import PythonServerBlueprint
 
 
-def _is_default_content(file_path, file_type):
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            content = f.read()
-        if file_type == "README.md":
-            return "[Insert narrative]" in content or "guardian of Gingilla" in content
-        if file_type == "Dockerfile":
-            # Check for default slim images with very little custom logic
-            return ("FROM python:3.11-slim" in content or "FROM node:20-slim" in content) and len(content) < 165
-        return False
-    except:
-        return False
-
-
 class BlueprintDog:
     """
     The Base Class: Handles Inspection (Auditor) and Configuration.
@@ -58,28 +44,36 @@ class BlueprintDog:
     # --- AUDITOR LOGIC --
 
     def _is_exempt(self, rel_path, exempt_set):
-        """
-        Determines if a path is exempt, including wildcard support (e.g., 'tempServer/*').
-        """
-        # Get the actual folder name of the root (e.g., 'tempServer')
-        root_name = os.path.basename(self.root_dir)
+        # Normalize rel_path: if it's ".", make it empty; otherwise use it.
+        # We strip the root_name prefix logic unless your JSON specifically
+        # includes "GingillaFarm/assets".
+        path = "" if rel_path == "." else rel_path
 
-        # Reconstruct the full path relative to the "Farm" root
-        # If rel_path is 'app/models', full_path becomes 'tempServer/app/models'
-        if rel_path == ".":
-            full_path = root_name
-        else:
-            full_path = f"{root_name}/{rel_path}"
+        # Split into parts and check segments
+        # We use .lower() if you want to be case-insensitive,
+        # but better to just match your JSON casing exactly.
+        parts = [p for p in path.split('/') if p]
 
-        path_parts = full_path.split('/')
-        for i in range(len(path_parts)):
-            current_segment = '/'.join(path_parts[:i + 1])
+        # Check the root itself if rel_path is "."
+        if not parts:
+            return "." in exempt_set or "GingillaFarm" in exempt_set
 
-            # Check for direct match or wildcard match
-            if current_segment in exempt_set:
+        current_path = ""
+        for i, part in enumerate(parts):
+            if current_path:
+                current_path += f"/{part}"
+            else:
+                current_path = part
+
+            # Check for direct match (e.g., "watchDogs")
+            if current_path in exempt_set:
                 return True
-            if f"{current_segment}/*" in exempt_set and len(path_parts) > (i + 1):
+
+            # Check for wildcard match (e.g., "assets/*")
+            # Only returns True if there are more parts after this segment
+            if f"{current_path}/*" in exempt_set and i < len(parts) - 1:
                 return True
+
         return False
 
     def run_audit(self, max_depth=None, silent=False):
@@ -115,14 +109,10 @@ class BlueprintDog:
             if not is_exempt_docker:
                 if not has_docker:
                     self.report["missing_docker"].append(report_path)
-                elif _is_default_content(os.path.join(root, 'Dockerfile'), 'Dockerfile'):
-                    self.report["default_docker"].append(report_path)
 
             if not is_exempt_readme:
                 if not has_readme:
                     self.report["missing_readme"].append(report_path)
-                elif _is_default_content(os.path.join(root, 'README.md'), 'README.md'):
-                    self.report["default_readme"].append(report_path)
 
             # Visual Tree Printing
             if not silent:
@@ -165,8 +155,8 @@ class BlueprintDog:
 
 # --- EXECUTION ---
 if __name__ == "__main__":
-    dog = BlueprintDog(r'C:\Shon\gitHub\GingillaFarm\buildings')
-    # dog.create_building("BON_SERVER", building_type="python_server")
-    dog.create_building("BON_FRONT", building_type="frontend")
-    # dog.run_audit()
-    # dog.print_report()
+    dog = BlueprintDog(r'C:\Shon\gitHub\GingillaFarm')
+    # dog.create_building("circles_server", building_type="python_server")
+    # dog.create_building("circles_client", building_type="frontend")
+    dog.run_audit()
+    dog.print_report()

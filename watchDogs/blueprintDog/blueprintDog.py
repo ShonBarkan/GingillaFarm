@@ -62,6 +62,7 @@ class BlueprintDog:
         for i, part in enumerate(parts):
             if current_path:
                 current_path += f"/{part}"
+
             else:
                 current_path = part
 

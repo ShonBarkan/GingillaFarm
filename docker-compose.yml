@@ -1,17 +1,125 @@
 services:
-  # The LogDog doesn't run as a standalone service yet (it's a library),
-  # but we define the shared volume and a mock service to test the kennel.
-  log-tester:
-    image: python:3.11-slim
-    container_name: farm_log_tester
-    volumes:
-      # This is the "Kennel" - the shared ground for all logs
-      - ${FARM_ROOT_PATH}/farm_logs:/app/farm_logs
-    env_file: .env
+  # --- THE SILO (Database & Manager) ---
+  db:
+    image: postgres:15-alpine
+    container_name: silo_db
+    restart: always
     environment:
-      - FARM_ROOT_PATH=/app
-    command: ["echo", "LogDog Kennel is ready and mounted at ${FARM_ROOT_PATH}/farm_logs"]
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
 
-networks:
-  farm-network:
-    driver: bridge
+  db_manager:
+    build: ./buildings/microservers/db_manager
+    container_name: db_manager
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    expose:
+      - "8000"
+
+  # --- THE OWL (AI Service) ---
+  ai_service:
+    build: ./buildings/microservers/ai_service
+    container_name: ai_service
+    depends_on:
+      - db_manager
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      SILO_URL: http://db_manager:8000/query
+    expose:
+      - "8000"
+
+  # --- THE FOREMAN (Scheduler) ---
+  foreman:
+    build: ./buildings/microservers/foreman
+    container_name: foreman_microservice
+    depends_on:
+      - db_manager
+      - ai_service
+    environment:
+      SILO_URL: http://db_manager:8000/query
+      AI_URL: http://ai_service:8000/ask
+    expose:
+      - "8000"
+
+  # --- THE GREAT GATE (API Gateway) ---
+  farm_gate:
+    build: ./buildings/microservers/farm_gate
+    container_name: gate_microservice
+    depends_on:
+      - db_manager
+      - ai_service
+      - foreman
+    ports:
+      - "${GATE_PORT}:8000"
+    restart: always
+
+  # --- THE STORAGE CELLAR (Nextcloud) ---
+  nextcloud_db:
+    image: mariadb:10.11
+    container_name: nextcloud_db
+    command: --transaction-isolation=READ-COMMITTED --binlog-format=ROW
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${NEXTCLOUD_DB_PWD}
+      MYSQL_PASSWORD: ${NEXTCLOUD_DB_PWD}
+      MYSQL_DATABASE: nextcloud
+      MYSQL_USER: nextcloud
+    volumes:
+      - ./data/nextcloud_db:/var/lib/mysql
+
+  nextcloud:
+    image: nextcloud:stable
+    container_name: nextcloud_app
+    depends_on:
+      - nextcloud_db
+    restart: always
+    environment:
+      MYSQL_PASSWORD: ${NEXTCLOUD_DB_PWD}
+      MYSQL_DATABASE: nextcloud
+      MYSQL_USER: nextcloud
+      MYSQL_HOST: nextcloud_db
+      NEXTCLOUD_TRUSTED_DOMAINS: ${NEXTCLOUD_TRUSTED_DOMAINS}
+    volumes:
+      - ./data/nextcloud_data:/var/www/html
+    expose:
+      - "80"
+
+  # --- THE WEATHER STATION (Monitoring) ---
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./watchDogs/weatherStation/prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    expose:
+      - "9090"
+
+  node_exporter:
+    image: quay.io/prometheus/node-exporter:latest
+    container_name: node_exporter
+    command:
+      - '--path.rootfs=/host'
+    network_mode: host
+    pid: host
+    restart: always
+    volumes:
+      - '/:/host:ro,rslave'
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    depends_on:
+      - prometheus
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+    volumes:
+      - ./data/grafana:/var/lib/grafana

@@ -123,3 +123,15 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
     volumes:
       - ./data/grafana:/var/lib/grafana
+
+  # --- THE OVERSEER (Farm Map) ---
+  farm_map:
+    image: nginx:alpine
+    container_name: farm_map
+    restart: always
+    volumes:
+      - ./Map/index.html:/usr/share/nginx/html/index.html:ro
+    ports:
+      - "80:80"
+    depends_on:
+      - farm_gate

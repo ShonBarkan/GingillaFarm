@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gingilla Farm | Interactive Map</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Quicksand', sans-serif; background-color: #f0f4f8; }
+        .farm-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .farm-card:hover { transform: scale(1.02); }
+        .status-pulse { animation: pulse 2s infinite; }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.4; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <nav class="bg-white shadow-sm sticky top-0 z-50 px-4 py-3">
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <span class="text-2xl">🐹</span>
+                <span class="font-bold text-orange-600 text-xl hidden sm:inline">Gingilla Farm</span>
+            </div>
+            <div class="flex gap-4">
+                <button onclick="toggleLanguage()" class="text-sm font-semibold text-slate-600 border border-slate-200 px-3 py-1 rounded-full hover:bg-slate-50">
+                    EN / עב
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-6xl mx-auto p-6 md:p-12">
+
+        <header class="text-center mb-12">
+            <h1 id="main-title" class="text-3xl md:text-5xl font-bold text-slate-800 mb-4">The Farm Map</h1>
+            <p id="main-desc" class="text-slate-500 max-w-2xl mx-auto">Manage your buildings, check the silo levels, and consult the Owl from this central gateway.</p>
+        </header>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+
+            <a href="http://localhost:8000/docs" target="_blank" class="farm-card bg-white rounded-3xl p-2 shadow-xl shadow-slate-200/50 flex flex-col h-full border border-white">
+                <div class="relative h-48 w-full bg-gradient-to-br from-orange-400 to-orange-500 rounded-2xl flex items-center justify-center overflow-hidden">
+                    <span class="text-7xl">🏰</span>
+                    <div class="absolute top-4 right-4 bg-green-500 w-3 h-3 rounded-full status-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
+                </div>
+                <div class="p-5 flex-grow">
+                    <h2 class="text-xl font-bold text-slate-800" data-en="The Great Gate" data-he="השער הגדול">The Great Gate</h2>
+                    <p class="text-slate-500 text-sm mt-2 leading-relaxed" data-en="The entrance to the farm. Routes all API traffic." data-he="הכניסה לחווה. מנתב את כל תעבורת ה-API."></p>
+                </div>
+                <div class="px-5 pb-5 text-xs font-bold uppercase tracking-wider text-orange-600">Port: 8000</div>
+            </a>
+
+            <a href="http://localhost:3000" target="_blank" class="farm-card bg-white rounded-3xl p-2 shadow-xl shadow-slate-200/50 flex flex-col h-full border border-white">
+                <div class="h-48 w-full bg-gradient-to-br from-blue-400 to-indigo-500 rounded-2xl flex items-center justify-center relative">
+                    <span class="text-7xl">🌦️</span>
+                    <div class="absolute top-4 right-4 bg-green-500 w-3 h-3 rounded-full status-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
+                </div>
+                <div class="p-5 flex-grow">
+                    <h2 class="text-xl font-bold text-slate-800" data-en="Weather Station" data-he="תחנת המזג אוויר">Weather Station</h2>
+                    <p class="text-slate-500 text-sm mt-2" data-en="Real-time farm metrics via Grafana dashboards." data-he="מדדי חווה בזמן אמת דרך לוחות הבקרה של Grafana."></p>
+                </div>
+                <div class="px-5 pb-5 text-xs font-bold uppercase tracking-wider text-blue-600">Port: 3000</div>
+            </a>
+
+            <a href="http://localhost:8080" target="_blank" class="farm-card bg-white rounded-3xl p-2 shadow-xl shadow-slate-200/50 flex flex-col h-full border border-white">
+                <div class="h-48 w-full bg-gradient-to-br from-emerald-400 to-teal-600 rounded-2xl flex items-center justify-center relative">
+                    <span class="text-7xl">📦</span>
+                    <div class="absolute top-4 right-4 bg-green-500 w-3 h-3 rounded-full status-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
+                </div>
+                <div class="p-5 flex-grow">
+                    <h2 class="text-xl font-bold text-slate-800" data-en="Storage Cellar" data-he="מרתף האחסון">Storage Cellar</h2>
+                    <p class="text-slate-500 text-sm mt-2" data-en="Nextcloud instance for all farm documents." data-he="מופע Nextcloud לכל מסמכי החווה."></p>
+                </div>
+                <div class="px-5 pb-5 text-xs font-bold uppercase tracking-wider text-emerald-600">Port: 8080</div>
+            </a>
+
+        </div>
+    </main>
+
+    <script>
+        function toggleLanguage() {
+            const isEn = document.documentElement.getAttribute('lang') === 'en';
+            document.documentElement.setAttribute('lang', isEn ? 'he' : 'en');
+            document.documentElement.setAttribute('dir', isEn ? 'rtl' : 'ltr');
+
+            document.getElementById('main-title').textContent = isEn ? 'מפת החווה' : 'The Farm Map';
+            document.getElementById('main-desc').textContent = isEn ? 'נהל את המבנים שלך, בדוק את רמות הסילו והתייעץ עם הינשוף משער מרכזי זה.' : 'Manage your buildings, check the silo levels, and consult the Owl from this central gateway.';
+
+            document.querySelectorAll('[data-en]').forEach(el => {
+                el.textContent = isEn ? el.getAttribute('data-he') : el.getAttribute('data-en');
+            });
+        }
+
+        // Run once to set initial text
+        toggleLanguage();
+        toggleLanguage();
+    </script>
+</body>
+</html>

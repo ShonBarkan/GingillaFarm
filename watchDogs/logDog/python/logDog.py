@@ -1,3 +1,5 @@
+import sys
+import io
 import json
 import os
 import logging
@@ -137,7 +139,6 @@ class LogDogFormatter(logging.Formatter):
             return self._format_default(record, log_time, status,file_name)
 
 # --- SETUP FUNCTION ---
-
 def setup_log_dog(project_name: str, log_type: str = "default"):
     # Unique logger per project and type
     logger = logging.getLogger(f"{project_name}_{log_type}")
@@ -146,9 +147,20 @@ def setup_log_dog(project_name: str, log_type: str = "default"):
         if not os.path.exists(LOG_DIR):
             os.makedirs(LOG_DIR, exist_ok=True)
 
-        console_handler = logging.StreamHandler()
+        if sys.platform == "win32" and isinstance(sys.stdout, io.TextIOWrapper):
+            sys.stdout.reconfigure(encoding='utf-8')
+
+        console_handler = logging.StreamHandler(sys.stdout)
+
         file_path = os.path.join(LOG_DIR, f"logs-{datetime.now().strftime('%Y-%m-%d')}.log")
-        file_handler = TimedRotatingFileHandler(file_path, when="midnight", interval=1, backupCount=14)
+
+        file_handler = TimedRotatingFileHandler(
+            file_path,
+            when="midnight",
+            interval=1,
+            backupCount=14,
+            encoding="utf-8"
+        )
 
         formatter = LogDogFormatter(project_name=project_name, log_type=log_type)
         console_handler.setFormatter(formatter)

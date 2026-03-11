@@ -1,0 +1,18 @@
+      version: '3.8'
+      services:
+        carrottracker-server:
+          build: ./server
+          # Maps [External Port from .env] : [Internal Port from .env]
+          ports:
+            - "${BACKEND_PORT_EXTERNAL}:${BACKEND_PORT_INTERNAL}"
+          env_file: .env
+          volumes:
+            - ./watchDogs/logs:/app/logs
+- ./assets:/app/assets
+- ./data:/app/data
+
+        carrottracker-frontend:
+          build: ./frontend
+          ports:
+            - "${FRONTEND_PORT_EXTERNAL}:${FRONTEND_PORT_INTERNAL}"
+          env_file: .env

@@ -1,0 +1,57 @@
+{
+  "building_name": "CarrotTracker",
+  "narrative": "A system to monitor the growth of ginger carrots in the north field.",
+  "infrastructure": {
+    "db_manager_url": "http://db-manager:8000",
+    "volumes": {
+      "logs": "./watchDogs/logs",
+      "assets": "./assets",
+      "data": "./data"
+    },
+    "env_vars": [
+      { "key": "FARM_SECRET_KEY", "default": "gingilla_super_secret_2026" },
+      { "key": "LOG_LEVEL", "default": "INFO" },
+      { "key": "DB_TIMEOUT", "default": "30" }
+    ]
+  },
+  "database": {
+    "engine": "postgres",
+    "soft_delete": true,
+    "tables": [
+      {
+        "name": "carrots",
+        "primary_key": "id",
+        "columns": [
+          { "name": "id", "type": "int", "required": true, "auto_increment": true },
+          { "name": "variety", "type": "string", "required": true, "max_length": 50 },
+          { "name": "weight", "type": "float", "required": false },
+          { "name": "metadata", "type": "json", "required": false },
+          { "name": "is_ripe", "type": "boolean", "default": false }
+        ],
+        "relationships": []
+      }
+    ]
+  },
+  "server": {
+    "type": "fastapi",
+    "port": 8000,
+    "cors": true,
+    "health_check": true,
+    "logging": true,
+    "pagination": {
+      "enabled": true,
+      "default_limit": 50
+    }
+  },
+  "frontend": {
+    "type": "react_vite",
+    "port": 3000,
+    "features": {
+      "context": true,
+      "router": true,
+      "i18n": true,
+      "toast_notifications": true
+    },
+    "styling": "tailwind"
+  }
+}

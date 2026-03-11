@@ -6,12 +6,47 @@ from watchDogs.blueprintDog.blueprints.WatchDogBlueprint import WatchDogBlueprin
 from watchDogs.blueprintDog.blueprints.PythonServerBlueprint import PythonServerBlueprint
 
 
+def _is_exempt(rel_path, exempt_set):
+    # Normalize rel_path: if it's ".", make it empty; otherwise use it.
+    # We strip the root_name prefix logic unless your JSON specifically
+    # includes "GingillaFarm/assets".
+    path = "" if rel_path == "." else rel_path
+
+    # Split into parts and check segments
+    # We use .lower() if you want to be case-insensitive,
+    # but better to just match your JSON casing exactly.
+    parts = [p for p in path.split('/') if p]
+
+    # Check the root itself if rel_path is "."
+    if not parts:
+        return "." in exempt_set or "GingillaFarm" in exempt_set
+
+    current_path = ""
+    for i, part in enumerate(parts):
+        if current_path:
+            current_path += f"/{part}"
+
+        else:
+            current_path = part
+
+        # Check for direct match (e.g., "watchDogs")
+        if current_path in exempt_set:
+            return True
+
+        # Check for wildcard match (e.g., "assets/*")
+        # Only returns True if there are more parts after this segment
+        if f"{current_path}/*" in exempt_set and i < len(parts) - 1:
+            return True
+
+    return False
+
+
 class BlueprintDog:
     """
     The Base Class: Handles Inspection (Auditor) and Configuration.
     """
 
-    def __init__(self, root_dir, config_name='blueprint_config.json'):
+    def __init__(self, root_dir, config_name='blueprint_audit_config.json'):
         self.root_dir = os.path.normpath(root_dir)
         self.config_path = os.path.join(os.path.dirname(__file__), config_name)
         self.report = {"missing_docker": [], "missing_readme": [], "default_docker": [], "default_readme": []}
@@ -43,40 +78,6 @@ class BlueprintDog:
 
     # --- AUDITOR LOGIC --
 
-    def _is_exempt(self, rel_path, exempt_set):
-        # Normalize rel_path: if it's ".", make it empty; otherwise use it.
-        # We strip the root_name prefix logic unless your JSON specifically
-        # includes "GingillaFarm/assets".
-        path = "" if rel_path == "." else rel_path
-
-        # Split into parts and check segments
-        # We use .lower() if you want to be case-insensitive,
-        # but better to just match your JSON casing exactly.
-        parts = [p for p in path.split('/') if p]
-
-        # Check the root itself if rel_path is "."
-        if not parts:
-            return "." in exempt_set or "GingillaFarm" in exempt_set
-
-        current_path = ""
-        for i, part in enumerate(parts):
-            if current_path:
-                current_path += f"/{part}"
-
-            else:
-                current_path = part
-
-            # Check for direct match (e.g., "watchDogs")
-            if current_path in exempt_set:
-                return True
-
-            # Check for wildcard match (e.g., "assets/*")
-            # Only returns True if there are more parts after this segment
-            if f"{current_path}/*" in exempt_set and i < len(parts) - 1:
-                return True
-
-        return False
-
     def run_audit(self, max_depth=None, silent=False):
         self.report = {"missing_docker": [], "missing_readme": [], "default_docker": [], "default_readme": []}
 
@@ -103,8 +104,8 @@ class BlueprintDog:
             has_readme = 'README.md' in files
 
             # Logic: Check exemptions
-            is_exempt_docker = self._is_exempt(rel_path, self.exempt_docker)
-            is_exempt_readme = self._is_exempt(rel_path, self.exempt_readme)
+            is_exempt_docker = _is_exempt(rel_path, self.exempt_docker)
+            is_exempt_readme = _is_exempt(rel_path, self.exempt_readme)
 
             # Audit Recording
             if not is_exempt_docker:
@@ -154,10 +155,12 @@ class BlueprintDog:
 
         print("=" * 60)
 
+
 # --- EXECUTION ---
 if __name__ == "__main__":
-    dog = BlueprintDog(r'C:\Shon\gitHub\GingillaFarm')
+    dog = BlueprintDog(r'C:\Shon\gitHub\GingillaFarm\buildings')
     # dog.create_building("circles_server", building_type="python_server")
     # dog.create_building("circles_client", building_type="frontend")
-    dog.run_audit()
-    dog.print_report()
+    dog.create_building("BON_full_app", building_type="full_app")
+    # dog.run_audit()
+    # dog.print_report()

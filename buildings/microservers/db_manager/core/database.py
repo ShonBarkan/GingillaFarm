@@ -1,8 +1,10 @@
 from sqlalchemy import create_engine
+from dotenv import load_dotenv
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
 
+load_dotenv()
 # Sensitive data loaded from the centralized .env in the root
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:pass@db:5432/gingilla_db")
 

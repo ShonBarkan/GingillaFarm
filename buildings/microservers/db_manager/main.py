@@ -1,9 +1,10 @@
+import uvicorn
 from fastapi import FastAPI, HTTPException, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from .core.database import SessionLocal, engine
-from .core.translator import SQLTranslator
-from .schemas.query_schema import QueryRequest
+from core.database import SessionLocal, engine
+from core.translator import SQLTranslator
+from schemas.query_schema import QueryRequest
 
 app = FastAPI(title="Gingilla Farm - DB Manager")
 
@@ -16,7 +17,6 @@ def get_db():
         db.close()
 
 
-@app.post("/query")
 @app.post("/query")
 async def structured_query(request: QueryRequest, db: Session = Depends(get_db)):
     """The main entry point for other buildings to talk to the Silo."""
@@ -76,6 +76,8 @@ async def structured_query(request: QueryRequest, db: Session = Depends(get_db))
         db.rollback()
         # Ensure we log the error properly in the future with LogDog
         raise HTTPException(status_code=500, detail=f"Silo Error: {str(e)}")
+
+
 @app.get("/health")
 def check_silo_integrity():
     """Check if the Silo is standing and the DB is connected."""
@@ -86,16 +88,25 @@ def check_silo_integrity():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Silo Breach: {str(e)}")
 
+
 @app.post("/raw")
 async def direct_query(query: str, db: Session = Depends(get_db)):
     """ADMIN ONLY: Execute direct SQL string."""
     try:
         result = db.execute(text(query))
-        # For SELECT queries, fetch all
+
         if query.strip().lower().startswith("select"):
-            return {"result": [dict(row) for row in result]}
+            # Use ._mapping to safely convert rows to dictionaries
+            return {"result": [dict(row._mapping) for row in result]}
+
         db.commit()
         return {"status": "success"}
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
+
+
+if __name__ == "__main__":
+    # In production, the Dockerfile will likely call uvicorn directly,
+    # but this allows for direct python execution during farm maintenance.
+    uvicorn.run("main:app", host="0.0.0.0", port=8001, reload=True)

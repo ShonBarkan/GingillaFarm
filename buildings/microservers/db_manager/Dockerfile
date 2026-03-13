@@ -1,23 +1,18 @@
-services:
-  db:
-    image: postgres:15-alpine
-    container_name: gingilla_postgres
-    environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: gingilla_db
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+# Use Python slim for a lightweight container
+FROM python:3.11-slim
 
-  db_manager:
-    build: ./buildings/microservers/db_manager
-    container_name: silo_microservice
-    depends_on:
-      - db
-    environment:
-      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/gingilla_db
-    ports:
-      - "8001:8000"
+# Set the work directory inside the container
+WORKDIR /app
 
-volumes:
-  postgres_data:
+# Copy dependency file
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the microservice source code
+COPY . .
+
+# The Silo usually runs on 8000 internally
+EXPOSE 8000
+
+# Start the DB Manager
+CMD ["python", "main.py"]

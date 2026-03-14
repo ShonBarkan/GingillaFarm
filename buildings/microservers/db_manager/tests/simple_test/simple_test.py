@@ -1,7 +1,7 @@
 import requests
 import json
 
-BASE_URL = "http://shon-comp:8001"
+BASE_URL = "http://shon-comp:8000"
 
 def print_response(title, response):
     print(f"--- {title} ---")

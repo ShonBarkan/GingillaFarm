@@ -8,28 +8,26 @@ import CoursePage from './pages/CoursePage';
 import Sidebar from './components/Sidebar';
 import Settings from './pages/Settings';
 
-
-
 function App() {
   const { healthStatus } = useCourses();
 
   return (
     <Router>
-      {/* The main container uses flex-row-reverse to put the sidebar 
-        on the right side for RTL. 
+      {/* Layout change: default is flex-col for mobile (stacked), 
+        switching to flex-row-reverse for medium screens and up (desktop sidebar).
       */}
-      <div className="flex h-screen w-full bg-slate-50 text-right overflow-hidden" dir="rtl">
+      <div className="flex flex-col md:flex-row-reverse h-screen w-full bg-slate-50 text-right overflow-hidden" dir="rtl">
         
-        {/* Navigation Sidebar */}
+        {/* Navigation Sidebar - will need responsive logic inside its own component */}
         <Sidebar />
 
         {/* Main Content Area */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-8">
+        <main className="flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8">
           
           {/* Health Indicator (Fixed bottom-left) */}
-          <div className="fixed bottom-6 left-6 flex items-center gap-2 bg-white px-3 py-1 rounded-full shadow-sm border border-slate-200 z-50">
-            <span className={`flex h-3 w-3 rounded-full ${healthStatus === 'online' ? 'bg-green-500' : 'bg-red-500'}`}></span>
-            <span className="text-xs font-medium text-slate-500 uppercase tracking-tighter">
+          <div className="fixed bottom-4 left-4 md:bottom-6 md:left-6 flex items-center gap-2 bg-white px-3 py-1 rounded-full shadow-md border border-slate-200 z-50">
+            <span className={`flex h-2 w-2 md:h-3 md:w-3 rounded-full ${healthStatus === 'online' ? 'bg-green-500' : 'bg-red-500'}`}></span>
+            <span className="text-[10px] md:text-xs font-medium text-slate-500 uppercase tracking-tighter">
               {healthStatus || 'Checking...'}
             </span>
           </div>

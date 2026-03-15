@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Install dependencies
 COPY package*.json ./
-RUN npm install
+RUN npm install --legacy-peer-deps
 
 # Copy source and build
 COPY . .
@@ -15,15 +15,16 @@ ENV VITE_API_URL=$VITE_API_URL
 
 RUN npm run build
 
-# Production stage - using Nginx to serve the static files
+# Production stage
 FROM nginx:stable-alpine as production-stage
 
-# Copy built files from build-stage to nginx
+# 1. Copy built files
 COPY --from=build-stage /app/dist /usr/share/nginx/html
 
-# Copy custom nginx config if you have one (optional)
-# COPY nginx.conf /etc/nginx/conf.d/default.conf
+# 2. Copy your custom config to override the default
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-EXPOSE 80
+# 3. Documentation (Keep this 3100)
+EXPOSE 3100
 
 CMD ["nginx", "-g", "daemon off;"]

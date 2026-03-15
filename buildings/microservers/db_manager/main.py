@@ -109,4 +109,4 @@ async def direct_query(query: str, db: Session = Depends(get_db)):
 if __name__ == "__main__":
     # In production, the Dockerfile will likely call uvicorn directly,
     # but this allows for direct python execution during farm maintenance.
-    uvicorn.run("main:app", host="0.0.0.0", port=8001, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

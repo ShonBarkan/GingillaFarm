@@ -22,19 +22,45 @@ const QuickUpdateModal = ({ lesson, onClose, onRefresh }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" dir="rtl">
-      <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
-        <h4 className="font-bold text-lg mb-2">עדכון שיעור: {lesson.course_name}</h4>
-        <p className="text-xs text-slate-500 mb-4">{lesson.date} | יום {lesson.day}</p>
+    /* Background Overlay: Ensuring items-center for desktop and items-end/center for mobile 
+       to help with keyboard visibility. 
+    */
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4 md:p-6" dir="rtl">
+      
+      {/* Modal Container: Max-width for desktop, full-width with padding for mobile */}
+      <div className="bg-white rounded-2xl p-5 md:p-8 max-w-md w-full shadow-2xl transform transition-all animate-in fade-in zoom-in duration-200">
+        
+        {/* Header Section */}
+        <h4 className="font-bold text-lg md:text-xl text-slate-800 mb-1 leading-tight">
+          עדכון שיעור: {lesson.course_name}
+        </h4>
+        <p className="text-[11px] md:text-xs text-slate-500 mb-5 font-medium">
+          {lesson.date} | יום {lesson.day}
+        </p>
+
+        {/* Input Section - Optimized height for mobile screens */}
         <textarea 
           placeholder="מה למדנו? (בירווז מהיר)"
-          className="w-full border rounded-xl p-3 h-32 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+          className="w-full border border-slate-200 rounded-xl p-4 h-32 md:h-40 text-sm md:text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-shadow resize-none"
           value={birvouz}
           onChange={(e) => setBirvouz(e.target.value)}
+          autoFocus
         />
-        <div className="flex gap-2 mt-4">
-          <button onClick={handleSubmit} className="flex-1 bg-blue-600 text-white font-bold py-2 rounded-lg hover:bg-blue-700">שמור</button>
-          <button onClick={onClose} className="flex-1 bg-slate-100 text-slate-600 font-bold py-2 rounded-lg hover:bg-slate-200">ביטול</button>
+
+        {/* Action Buttons - Larger tap targets for touchscreens */}
+        <div className="flex flex-row gap-3 mt-6">
+          <button 
+            onClick={handleSubmit} 
+            className="flex-1 bg-blue-600 text-white font-bold py-3 md:py-2 rounded-xl md:rounded-lg hover:bg-blue-700 active:scale-95 transition-all text-sm md:text-base shadow-lg shadow-blue-100"
+          >
+            שמור
+          </button>
+          <button 
+            onClick={onClose} 
+            className="flex-1 bg-slate-100 text-slate-600 font-bold py-3 md:py-2 rounded-xl md:rounded-lg hover:bg-slate-200 active:scale-95 transition-all text-sm md:text-base"
+          >
+            ביטול
+          </button>
         </div>
       </div>
     </div>

@@ -6,7 +6,7 @@ import requests
 from datetime import date
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import List, Optional, Dict, Any
 from dotenv import load_dotenv # הוסף את זה
 
@@ -14,7 +14,7 @@ app = FastAPI(title="Limodim - Academic Management")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://shon-comp:3100","http://localhost:3100"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -95,6 +95,27 @@ class FullCourseData(BaseModel):
     exams: List[Dict[str, Any]] = []
     syllabus: List[Dict[str, Any]] = []
 
+from pydantic import BaseModel, field_validator # Import field_validator
+
+class CourseBase(BaseModel):
+    name: str
+    degree_points: Optional[float] = None
+    lecturer: Optional[str] = None
+    practitioner: Optional[str] = None
+    final_grade: Optional[int] = None
+    semester: Optional[int] = None
+    link_to: Optional[str] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    schedule: Optional[List[ScheduleEntry]] = []
+
+    # This validator catches empty strings and converts them to None
+    @field_validator('start_date', 'end_date', mode='before')
+    @classmethod
+    def empty_string_to_none(cls, v):
+        if v == "":
+            return None
+        return v
 
 # --- DB Initialization Logic ---
 

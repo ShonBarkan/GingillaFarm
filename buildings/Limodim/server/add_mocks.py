@@ -2,7 +2,7 @@ import requests
 import json
 from datetime import date
 
-BASE_URL = "http://localhost:8002"
+BASE_URL = "http://shon-comp:8002"
 
 
 def seed_farm():

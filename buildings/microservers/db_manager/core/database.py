@@ -7,7 +7,6 @@ import os
 load_dotenv()
 # Sensitive data loaded from the centralized .env in the root
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:pass@db:5432/gingilla_db")
-
 # engine handles the Connection Pooling
 engine = create_engine(
     DATABASE_URL,

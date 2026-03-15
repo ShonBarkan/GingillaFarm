@@ -20,19 +20,19 @@ const CoursePage = () => {
     }
   }, [id]);
 
-  // Loading state
+  // Loading state - adjusted text size for mobile
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <div className="animate-pulse text-slate-500 font-bold text-xl">טוען נתוני קורס...</div>
+        <div className="animate-pulse text-slate-500 font-bold text-lg md:text-xl">טוען נתוני קורס...</div>
       </div>
     );
   }
   
-  // Error state if course not found
+  // Error state - added responsive padding
   if (!currentFullCourse || !currentFullCourse.course) {
     return (
-      <div className="p-8 text-center bg-red-50 text-red-600 rounded-xl border border-red-100 font-bold m-4">
+      <div className="p-6 md:p-8 text-center bg-red-50 text-red-600 rounded-xl border border-red-100 font-bold m-4">
         הנתונים לא נמצאו במערכת.
       </div>
     );
@@ -49,22 +49,24 @@ const CoursePage = () => {
   } = currentFullCourse;
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 p-4 pb-20" dir="rtl">
+    /* Adjusted outer padding for small screens and spacing between sections */
+    <div className="max-w-6xl mx-auto space-y-6 md:space-y-8 p-3 md:p-4 pb-24 md:pb-20" dir="rtl">
       
       {/* Main Header Component */}
       <CourseHeader course={course} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      {/* Grid: Stacks vertically on mobile/tablet, side-by-side on desktop (lg) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
         
-        {/* Right Sidebar (4/12): Schedules, Reception and Exams */}
-        <div className="lg:col-span-4 space-y-6">
+        {/* Sidebar Sections (Priority info for mobile: Schedule and Exams) */}
+        <div className="lg:col-span-4 space-y-6 order-1 lg:order-1">
           <WeeklySchedule course={course} />
           <ReceptionHours hours={reception_hours} courseId={course.id} />
           <ExamsList exams={exams} courseId={course.id} />
         </div>
 
-        {/* Left Main Content (8/12): Syllabus, History and Homework */}
-        <div className="lg:col-span-8 space-y-6">
+        {/* Main Content Sections (Syllabus, History, etc.) */}
+        <div className="lg:col-span-8 space-y-6 order-2 lg:order-2">
           <SyllabusSection syllabus={syllabus} courseId={course.id} />
           <ClassHistory classes={classes} courseId={course.id} />
           <HomeworkList homeworks={homeworks} courseId={course.id} />

@@ -155,12 +155,47 @@ class BlueprintDog:
 
         print("=" * 60)
 
+    def print_docker_configs(self):
+        """Prints the content of all Dockerfiles and docker-compose.yml files found in the root."""
+        print("\n" + "🐳" * 30)
+        print(" INSPECTING DOCKER CONFIGURATIONS")
+        print("🐳" * 30)
+
+        docker_files = ['Dockerfile', 'docker-compose.yml', 'docker-compose.yaml']
+
+        for root, dirs, files in os.walk(self.root_dir):
+            # סינון תיקיות התעלמות כדי לא לסרוק סתם (כמו ב-audit)
+            dirs[:] = [d for d in dirs if d not in self.ignore_list and not d.startswith('.')]
+
+            for filename in files:
+                if filename in docker_files:
+                    full_path = os.path.join(root, filename)
+                    rel_path = os.path.relpath(full_path, self.root_dir)
+
+                    print(f"\n📍 FILE: {rel_path}")
+                    print("-" * (len(rel_path) + 12))
+
+                    try:
+                        with open(full_path, 'r', encoding='utf-8') as f:
+                            content = f.read()
+                            if content.strip():
+                                print(content)
+                            else:
+                                print("[Empty File]")
+                    except Exception as e:
+                        print(f"❌ Error reading file: {e}")
+
+                    print("-" * 40)
+
+        print("\n" + "🐳" * 30 + "\n")
+
 
 # --- EXECUTION ---
 if __name__ == "__main__":
-    dog = BlueprintDog(r'C:\Shon\gitHub\GingillaFarm\buildings')
+    dog = BlueprintDog(r'/home/shon/GingillaFarm')
     # dog.create_building("circles_server", building_type="python_server")
     # dog.create_building("circles_client", building_type="frontend")
-    dog.create_building("BON_full_app", building_type="full_app")
-    # dog.run_audit()
+    # dog.create_building("BON_full_app", building_type="full_app")
+    dog.run_audit()
     # dog.print_report()
+    dog.print_docker_configs()

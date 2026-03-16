@@ -5,3 +5,39 @@ body {
   font-family: 'Assistant', sans-serif;
   @apply bg-slate-50; 
 }
+
+/* Force the SimpleMDE Editor into RTL */
+.CodeMirror {
+  direction: rtl !important;
+  text-align: right !important;
+  font-family: inherit;
+}
+
+.CodeMirror-placeholder {
+  right: 10px !important;
+  left: auto !important;
+}
+
+/* Fix cursor movement for RTL */
+.CodeMirror-scroll {
+  direction: rtl !important;
+  text-align: right !important;
+}
+
+/* Align the toolbar to the right */
+.editor-toolbar {
+  direction: rtl !important;
+  text-align: right !important;
+}
+
+/* Keep icons looking normal but aligned right */
+.editor-toolbar button {
+  direction: ltr !important;
+}
+
+/* Markdown Preview Styling */
+.markdown-body {
+  direction: rtl !important;
+  text-align: right !important;
+  unicode-bidi: plaintext;
+}

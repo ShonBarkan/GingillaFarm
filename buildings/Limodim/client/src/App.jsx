@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import CoursePage from './pages/CoursePage';
 import Sidebar from './components/Sidebar';
 import Settings from './pages/Settings';
+import ClassPage from './pages/ClassPage';
 
 function App() {
   const { healthStatus } = useCourses();
@@ -37,6 +38,7 @@ function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/course/:id" element={<CoursePage />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/course/:courseId/class/:classId" element={<ClassPage />} />
           </Routes>
         </main>
       </div>

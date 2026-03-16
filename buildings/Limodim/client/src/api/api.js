@@ -33,6 +33,20 @@ export const updateClass = (classId, classData) =>
 
 export const deleteClass = (classId) => api.delete(`/classes/${classId}`);
 
+// --- Class Files (PDF Management) ---
+
+export const getClassFiles = (classId) => api.get(`/class-files/${classId}`);
+
+export const uploadPdf = (classId, formData) => 
+  api.post(`/upload-pdf/${classId}`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+
+export const deletePdf = (classId, fileName) => 
+  api.delete(`/delete-pdf/${classId}/${fileName}`);
+
 // --- Homeworks ---
 export const getHomeworks = (courseId = null) => 
   api.get('/homeworks', { params: courseId ? { course_id: courseId } : {} });
@@ -89,6 +103,9 @@ export default {
   createClass,
   updateClass,
   deleteClass,
+  getClassFiles,
+  uploadPdf,
+  deletePdf,
   getHomeworks,
   createHomework,
   updateHomework,

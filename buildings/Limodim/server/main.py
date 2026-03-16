@@ -8,19 +8,32 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, field_validator
 from typing import List, Optional, Dict, Any
-from dotenv import load_dotenv # הוסף את זה
+from dotenv import load_dotenv
+import shutil
+from fastapi.staticfiles import StaticFiles
+from fastapi import UploadFile, File
 
 app = FastAPI(title="Limodim - Academic Management")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://shon-comp:3100","http://localhost:3100"],
+    allow_origins=["http://shon-comp:3100","http://localhost:3100", "http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 load_dotenv()
 DB_MANAGER_URL = os.getenv("DB_MANAGER_URL", "http://localhost:8000")
+BASE_STORAGE_PATH = os.getenv("PDF_STORAGE_PATH", "./uploads/summaries")
+UPLOAD_DIR = os.path.abspath(BASE_STORAGE_PATH)
+
+# --- PDF handle ---
+# Ensure assets directory exists
+if not os.path.exists(UPLOAD_DIR):
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+# Serve files statically so they can be viewed in the browser
+app.mount("/pdf-files", StaticFiles(directory=UPLOAD_DIR), name="summaries")
+
 
 # --- Pydantic Schemas ---
 
@@ -51,10 +64,21 @@ class ClassBase(BaseModel):
     date_taken: Optional[str] = None
     number: int  # Required
     birvouz: Optional[str] = None
+    summary: Optional[str] = None
     location_building: Optional[str] = None
     location_room: Optional[str] = None
     time: Optional[str] = None
     class_type: Optional[str] = "Lecture"
+
+
+class ClassFileBase(BaseModel):
+    class_id: int
+    file_name: str
+    original_name: str
+    upload_date: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
 
 
 class HomeworkBase(BaseModel):
@@ -141,6 +165,7 @@ def init_db_tables():
             "date_taken": "TEXT",
             "number": "INTEGER",
             "birvouz": "TEXT",
+            "summary": "TEXT",
             "location_building": "TEXT",
             "location_room": "TEXT",
             "time": "TEXT",
@@ -175,6 +200,13 @@ def init_db_tables():
             "topic_num": "INTEGER",
             "topic": "TEXT NOT NULL",
             "introduction": "TEXT"
+        },
+        "class_files": {
+            "id": "SERIAL PRIMARY KEY",
+            "class_id": "INTEGER REFERENCES classes(id)",
+            "file_name": "TEXT NOT NULL",  # Unique name stored on disk
+            "original_name": "TEXT NOT NULL",  # Original name for display
+            "upload_date": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
         }
     }
 
@@ -833,6 +865,71 @@ async def get_timeline():
     future = [t for t in full_timeline if t["date"] >= str(today)][:5]
 
     return {"past": past, "future": future}
+
+# --- Files Endpoints ---
+
+@app.post("/upload-pdf/{class_id}", response_model=ClassFileBase)
+async def upload_pdf(class_id: int, file: UploadFile = File(...)):
+    if not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files allowed")
+
+    # Create unique filename to prevent overwriting
+    timestamp = int(datetime.now().timestamp())
+    unique_name = f"cls_{class_id}_{timestamp}_{file.filename}"
+
+    # Use os.path.join for OS-independent path construction
+    file_path = os.path.join(UPLOAD_DIR, unique_name)
+
+    # Save physical file
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    # Register in database
+    payload = {
+        "action": "insert",
+        "table": "class_files",
+        "data": {
+            "class_id": class_id,
+            "file_name": unique_name,
+            "original_name": file.filename
+        }
+    }
+
+    try:
+        requests.post(f"{DB_MANAGER_URL}/query", json=payload)
+        return {"status": "success", "file_name": unique_name}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/class-files/{class_id}", response_model=List[ClassFileBase])
+async def get_class_files(class_id: int):
+    payload = {
+        "action": "find",
+        "table": "class_files",
+        "filters": {"class_id": class_id}
+    }
+    response = requests.post(f"{DB_MANAGER_URL}/query", json=payload)
+    return response.json()
+
+
+@app.delete("/delete-pdf/{class_id}/{file_name}")
+async def delete_pdf(class_id: int, file_name: str):
+    file_path = os.path.join(UPLOAD_DIR, file_name)
+
+    # 1. Remove from disk if exists
+    if os.path.exists(file_path):
+        os.remove(file_path)
+
+    # 2. Remove from database
+    payload = {
+        "action": "delete",
+        "table": "class_files",
+        "filters": {"class_id": class_id, "file_name": file_name}
+    }
+    requests.post(f"{DB_MANAGER_URL}/query", json=payload)
+
+    return {"status": "deleted"}
 
 
 if __name__ == "__main__":

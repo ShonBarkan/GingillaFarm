@@ -1,5 +1,6 @@
 import json
 import os
+import urllib
 from datetime import datetime, timedelta
 import uvicorn
 import requests
@@ -17,7 +18,7 @@ app = FastAPI(title="Limodim - Academic Management")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://shon-comp:3100","http://localhost:3100", "http://localhost:5173"],
+    allow_origins=["http://shon-comp:3100", "http://localhost:3100", "http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -44,31 +45,31 @@ class ScheduleEntry(BaseModel):
     location_building: Optional[str] = None
     location_room: Optional[str] = None
     class_type: Optional[str] = "Lecture"
-
-
-class CourseBase(BaseModel):
-    name: str
-    degree_points: Optional[float] = None
-    lecturer: Optional[str] = None
-    practitioner: Optional[str] = None
-    final_grade: Optional[int] = None
-    semester: Optional[int] = None
-    link_to: Optional[str] = None
-    start_date: Optional[date] = None
-    end_date: Optional[date] = None
-    schedule: Optional[List[ScheduleEntry]] = []
+    zoom_link: Optional[str] = None
 
 
 class ClassBase(BaseModel):
-    course_id: int  # Required
+    course_id: int
+    name: str
     date_taken: Optional[str] = None
-    number: int  # Required
+    number: int
     birvouz: Optional[str] = None
-    summary: Optional[str] = None
-    location_building: Optional[str] = None
+    summary: Optional[List[str]] = []
     location_room: Optional[str] = None
     time: Optional[str] = None
     class_type: Optional[str] = "Lecture"
+
+    @field_validator('summary', mode='before')
+    @classmethod
+    def ensure_list(cls, v):
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except:
+                return []
+        if v is None:
+            return []
+        return v
 
 
 class ClassFileBase(BaseModel):
@@ -83,6 +84,7 @@ class ClassFileBase(BaseModel):
 
 class HomeworkBase(BaseModel):
     course_id: int  # Required
+    name: str
     due_date: Optional[str] = None
     grade: Optional[float] = None
     link_to: Optional[str] = None
@@ -119,7 +121,6 @@ class FullCourseData(BaseModel):
     exams: List[Dict[str, Any]] = []
     syllabus: List[Dict[str, Any]] = []
 
-from pydantic import BaseModel, field_validator # Import field_validator
 
 class CourseBase(BaseModel):
     name: str
@@ -140,6 +141,7 @@ class CourseBase(BaseModel):
         if v == "":
             return None
         return v
+
 
 # --- DB Initialization Logic ---
 
@@ -162,10 +164,11 @@ def init_db_tables():
         "classes": {
             "id": "SERIAL PRIMARY KEY",
             "course_id": "INTEGER REFERENCES courses(id)",
+            "name": "TEXT",
             "date_taken": "TEXT",
             "number": "INTEGER",
             "birvouz": "TEXT",
-            "summary": "TEXT",
+            "summary": "JSONB DEFAULT '[]'::jsonb",
             "location_building": "TEXT",
             "location_room": "TEXT",
             "time": "TEXT",
@@ -174,6 +177,7 @@ def init_db_tables():
         "homeworks": {
             "id": "SERIAL PRIMARY KEY",
             "course_id": "INTEGER REFERENCES courses(id)",
+            "name": "TEXT",
             "due_date": "TEXT",
             "grade": "FLOAT",
             "link_to": "TEXT"
@@ -404,8 +408,15 @@ async def get_classes(course_id: Optional[int] = None):
 async def update_class(class_id: int, class_data: ClassBase):
     """Update an existing class entry."""
     data = class_data.dict()
+
+    # 1. Handle date conversion if exists
     if data.get("date"):
         data["date"] = data["date"].isoformat()
+
+    # 2. CRITICAL: Convert summary list to JSON string for DB storage
+    # This prevents the "Input should be a valid list" or "must be str, not list" errors
+    if "summary" in data and isinstance(data["summary"], list):
+        data["summary"] = json.dumps(data["summary"])
 
     payload = {
         "action": "update",
@@ -789,6 +800,7 @@ async def get_full_course_data(course_id: int):
 
 
 # --- timeline Endpoints ---
+# --- timeline Endpoints ---
 @app.get("/timeline")
 async def get_timeline():
     try:
@@ -854,82 +866,197 @@ async def get_timeline():
                         "time": slot.get("start_time", "00:00"),
                         "is_performed": is_performed,
                         "class_type": slot.get("class_type", "Lecture"),
-                        "location": f"{slot.get('location_building', '')}/{slot.get('location_room', '')}"
+                        "location": f"{slot.get('location_building', '')}/{slot.get('location_room', '')}",
+                        "zoom_link": slot.get("zoom_link")  # <--- הוספת השדה החדש כאן
                     })
 
     # Sort all events by date and then by time
     full_timeline.sort(key=lambda x: (x["date"], x["time"]))
 
     # Slice the results
-    past = [t for t in full_timeline if t["date"] < str(today)][-5:]
-    future = [t for t in full_timeline if t["date"] >= str(today)][:5]
+    past = [t for t in full_timeline if t["date"] < str(today)][-6:]
+    future = [t for t in full_timeline if t["date"] >= str(today)][:6]
 
     return {"past": past, "future": future}
 
+
 # --- Files Endpoints ---
 
-@app.post("/upload-pdf/{class_id}", response_model=ClassFileBase)
-async def upload_pdf(class_id: int, file: UploadFile = File(...)):
+def sanitize_folder_name(name: str):
+    decoded_name = urllib.parse.unquote(name)
+    # Allows Hebrew, English, spaces and underscores. Removes illegal characters like / \ : * ? " < > |
+    return "".join([c for c in decoded_name if c.isalnum() or c in (' ', '_', '-')]).strip()
+
+
+@app.post("/upload-pdf/{course_name}/{class_id}")
+async def upload_pdf(course_name: str, class_id: int, file: UploadFile = File(...)):
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files allowed")
 
-    # Create unique filename to prevent overwriting
+    clean_course_name = sanitize_folder_name(course_name)
+    relative_folder = os.path.join(clean_course_name, str(class_id))
+    target_dir = os.path.join(UPLOAD_DIR, relative_folder)
+    os.makedirs(target_dir, exist_ok=True)
+
     timestamp = int(datetime.now().timestamp())
-    unique_name = f"cls_{class_id}_{timestamp}_{file.filename}"
+    unique_name = f"{timestamp}_{file.filename}"
+    file_path_on_disk = os.path.join(target_dir, unique_name)
+    db_path = f"{clean_course_name}/{class_id}/{unique_name}".replace("\\", "/")
 
-    # Use os.path.join for OS-independent path construction
-    file_path = os.path.join(UPLOAD_DIR, unique_name)
-
-    # Save physical file
-    with open(file_path, "wb") as buffer:
+    with open(file_path_on_disk, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    # Register in database
-    payload = {
-        "action": "insert",
-        "table": "class_files",
-        "data": {
-            "class_id": class_id,
-            "file_name": unique_name,
-            "original_name": file.filename
+    try:
+        class_res = requests.post(f"{DB_MANAGER_URL}/query", json={
+            "action": "find",
+            "table": "classes",
+            "filters": {"id": class_id}
+        }).json()
+
+        current_class = class_res.get("data", [{}])[0]
+        raw_summary = current_class.get("summary")
+
+        # --- SAFE PARSING LOGIC ---
+        if isinstance(raw_summary, list):
+            summary_list = raw_summary
+        elif isinstance(raw_summary, str) and raw_summary.strip():
+            try:
+                summary_list = json.loads(raw_summary)
+            except:
+                summary_list = []
+        else:
+            summary_list = []
+        # --------------------------
+
+        summary_list.append(db_path)
+
+        update_payload = {
+            "action": "update",
+            "table": "classes",
+            "data": {"summary": json.dumps(summary_list)},
+            "filters": {"id": class_id}
         }
-    }
+
+        requests.post(f"{DB_MANAGER_URL}/query", json=update_payload)
+        return {"status": "success", "path": db_path}
+
+    except Exception as e:
+        if os.path.exists(file_path_on_disk):
+            os.remove(file_path_on_disk)
+        raise HTTPException(status_code=500, detail=f"Database update failed: {str(e)}")
+
+
+@app.post("/delete-class-file/{course_name}/{class_id}")
+async def delete_class_file(course_name: str, class_id: int, request_data: dict):
+    file_path_to_remove = request_data.get("file_path")
+    if not file_path_to_remove:
+        raise HTTPException(status_code=400, detail="file_path is required")
+
+    absolute_path = os.path.join(UPLOAD_DIR, file_path_to_remove)
+    if os.path.exists(absolute_path):
+        os.remove(absolute_path)
 
     try:
-        requests.post(f"{DB_MANAGER_URL}/query", json=payload)
-        return {"status": "success", "file_name": unique_name}
+        class_res = requests.post(f"{DB_MANAGER_URL}/query", json={
+            "action": "find",
+            "table": "classes",
+            "filters": {"id": class_id}
+        }).json()
+
+        current_class = class_res.get("data", [{}])[0]
+        raw_summary = current_class.get("summary")
+
+        # --- SAFE PARSING LOGIC ---
+        if isinstance(raw_summary, list):
+            summary_list = raw_summary
+        elif isinstance(raw_summary, str) and raw_summary.strip():
+            summary_list = json.loads(raw_summary)
+        else:
+            summary_list = []
+        # --------------------------
+
+        updated_summary = [p for p in summary_list if p != file_path_to_remove]
+
+        update_payload = {
+            "action": "update",
+            "table": "classes",
+            "data": {"summary": json.dumps(updated_summary)},
+            "filters": {"id": class_id}
+        }
+
+        requests.post(f"{DB_MANAGER_URL}/query", json=update_payload)
+        return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/class-files/{class_id}", response_model=List[ClassFileBase])
-async def get_class_files(class_id: int):
+@app.get("/class-summary/{class_id}")
+async def get_class_summary(class_id: int):
     payload = {
         "action": "find",
-        "table": "class_files",
-        "filters": {"class_id": class_id}
+        "table": "classes",
+        "filters": {"id": class_id}
     }
     response = requests.post(f"{DB_MANAGER_URL}/query", json=payload)
-    return response.json()
+    data = response.json().get("data", [])
 
+    if not data:
+        return []
 
-@app.delete("/delete-pdf/{class_id}/{file_name}")
-async def delete_pdf(class_id: int, file_name: str):
-    file_path = os.path.join(UPLOAD_DIR, file_name)
+    # Return the summary field parsed as a list
+    try:
+        return json.loads(data[0].get("summary", "[]"))
+    except:
+        return []
 
-    # 1. Remove from disk if exists
-    if os.path.exists(file_path):
-        os.remove(file_path)
+# --- Stats Endpoints ---
+@app.get("/classes/missing-summaries")
+async def get_missing_summaries():
+    try:
+        # Fetch data from DB Manager
+        res_classes = requests.post(f"{DB_MANAGER_URL}/query",
+                                    json={"action": "find", "table": "classes", "filters": {}})
+        res_courses = requests.post(f"{DB_MANAGER_URL}/query",
+                                    json={"action": "find", "table": "courses", "filters": {}})
 
-    # 2. Remove from database
-    payload = {
-        "action": "delete",
-        "table": "class_files",
-        "filters": {"class_id": class_id, "file_name": file_name}
-    }
-    requests.post(f"{DB_MANAGER_URL}/query", json=payload)
+        if res_classes.status_code != 200 or res_courses.status_code != 200:
+            raise HTTPException(status_code=500, detail="Database connection failed")
 
-    return {"status": "deleted"}
+        all_classes = res_classes.json().get("data", [])
+        all_courses = {c['id']: c['name'] for c in res_courses.json().get("data", [])}
+
+        today = datetime.now().date()
+        missing = []
+
+        for cls in all_classes:
+            # Parse date and summary
+            date_taken = datetime.strptime(cls['date_taken'], "%Y-%m-%d").date() if cls.get('date_taken') else None
+            summary = cls.get('summary', [])
+
+            if isinstance(summary, str):
+                try:
+                    summary = json.loads(summary)
+                except:
+                    summary = []
+
+            # Filter logic: date has passed and summary list is empty
+            if date_taken and date_taken <= today and (not summary or len(summary) == 0):
+                missing.append({
+                    "id": cls['id'],
+                    "course_id": cls['course_id'],
+                    "course_name": all_courses.get(cls['course_id'], "Unknown"),
+                    "number": cls['number'],
+                    "name": cls.get('name', 'Untitled'),
+                    "date": cls['date_taken']
+                })
+
+        # Sort by date (oldest first)
+        missing.sort(key=lambda x: x['date'])
+        return missing
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 
 if __name__ == "__main__":

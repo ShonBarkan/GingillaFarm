@@ -47,6 +47,7 @@ services:
     environment:
       - DB_MANAGER_URL=${DB_MANAGER_URL}
       - DB_NAME=${DB_NAME}
+      - PDF_STORAGE_PATH=${PDF_STORAGE_PATH}
     env_file: .env
     volumes:
       - ./buildings/Limodim/server:/app

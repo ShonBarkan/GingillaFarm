@@ -4,60 +4,98 @@ import api from '../../api/api';
 
 const QuickUpdateModal = ({ lesson, onClose, onRefresh }) => {
   const [birvouz, setBirvouz] = useState('');
+  const [name, setName] = useState('');
+  const [number, setNumber] = useState(''); 
 
   const handleSubmit = async () => {
+    if (!name || !number) {
+      alert("חובה להזין נושא ומספר שיעור");
+      return;
+    }
+
     try {
       await api.createClass({
         course_id: lesson.course_id,
+        name: name,
+        number: parseInt(number), 
         date_taken: lesson.date,
         birvouz: birvouz,
         time: lesson.time,
-        location_building: lesson.location.split('/')[0],
-        location_room: lesson.location.split('/')[1],
+        location_building: lesson.location?.split('/')[0] || "",
+        location_room: lesson.location?.split('/')[1] || "",
         class_type: lesson.class_type || "Lecture"
       });
       onRefresh();
       onClose();
-    } catch (err) { console.error(err); }
+    } catch (err) { 
+      console.error("Failed to quick update class:", err); 
+      alert("שגיאה בעדכון השיעור. בדוק את הנתונים.");
+    }
   };
 
   return (
-    /* Background Overlay: Ensuring items-center for desktop and items-end/center for mobile 
-       to help with keyboard visibility. 
-    */
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4 md:p-6" dir="rtl">
       
-      {/* Modal Container: Max-width for desktop, full-width with padding for mobile */}
-      <div className="bg-white rounded-2xl p-5 md:p-8 max-w-md w-full shadow-2xl transform transition-all animate-in fade-in zoom-in duration-200">
+      <div className="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl transform transition-all animate-in fade-in zoom-in duration-200">
         
         {/* Header Section */}
-        <h4 className="font-bold text-lg md:text-xl text-slate-800 mb-1 leading-tight">
-          עדכון שיעור: {lesson.course_name}
-        </h4>
-        <p className="text-[11px] md:text-xs text-slate-500 mb-5 font-medium">
-          {lesson.date} | יום {lesson.day}
-        </p>
+        <div className="mb-6">
+          <h4 className="font-black text-xl text-slate-800 leading-tight">
+            בירווז מהיר: {lesson.course_name}
+          </h4>
+          <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-1">
+            {lesson.date} | {lesson.time}
+          </p>
+        </div>
 
-        {/* Input Section - Optimized height for mobile screens */}
-        <textarea 
-          placeholder="מה למדנו? (בירווז מהיר)"
-          className="w-full border border-slate-200 rounded-xl p-4 h-32 md:h-40 text-sm md:text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-shadow resize-none"
-          value={birvouz}
-          onChange={(e) => setBirvouz(e.target.value)}
-          autoFocus
-        />
+        <div className="space-y-4">
+          {/* row for Number and Name */}
+          <div className="flex gap-3">
+            <div className="w-20">
+              <label className="text-[10px] font-black text-slate-400 uppercase mr-1">מספר</label>
+              <input 
+                type="number"
+                placeholder="#"
+                className="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                value={number}
+                onChange={(e) => setNumber(e.target.value)}
+              />
+            </div>
+            <div className="flex-1">
+              <label className="text-[10px] font-black text-slate-400 uppercase mr-1">נושא השיעור</label>
+              <input 
+                type="text"
+                placeholder="על מה דיברנו?"
+                className="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all font-bold"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+          </div>
 
-        {/* Action Buttons - Larger tap targets for touchscreens */}
-        <div className="flex flex-row gap-3 mt-6">
+          {/* Description Textarea */}
+          <div>
+            <label className="text-[10px] font-black text-slate-400 uppercase mr-1">תיאור (בירווז)</label>
+            <textarea 
+              placeholder="פירוט חופשי..."
+              className="w-full border border-slate-200 rounded-xl p-4 h-32 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none bg-slate-50/50"
+              value={birvouz}
+              onChange={(e) => setBirvouz(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex flex-row gap-3 mt-8">
           <button 
             onClick={handleSubmit} 
-            className="flex-1 bg-blue-600 text-white font-bold py-3 md:py-2 rounded-xl md:rounded-lg hover:bg-blue-700 active:scale-95 transition-all text-sm md:text-base shadow-lg shadow-blue-100"
+            className="flex-[2] bg-slate-900 text-white font-black py-4 rounded-2xl hover:bg-black active:scale-95 transition-all text-sm shadow-lg"
           >
-            שמור
+            שמור בחווה
           </button>
           <button 
             onClick={onClose} 
-            className="flex-1 bg-slate-100 text-slate-600 font-bold py-3 md:py-2 rounded-xl md:rounded-lg hover:bg-slate-200 active:scale-95 transition-all text-sm md:text-base"
+            className="flex-1 bg-slate-100 text-slate-500 font-bold py-4 rounded-2xl hover:bg-slate-200 active:scale-95 transition-all text-sm"
           >
             ביטול
           </button>

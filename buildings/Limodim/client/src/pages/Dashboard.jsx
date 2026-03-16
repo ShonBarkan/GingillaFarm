@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useCourses } from '../context/CourseContext';
 import Timeline from '../components/Dashboard/Timeline'; // Import the new Timeline component
+import MissingSummaries from '../components/Dashboard/MissingSummaries';
 
 const Dashboard = () => {
   const { courses, healthStatus } = useCourses();
@@ -10,43 +11,15 @@ const Dashboard = () => {
     /* Added horizontal padding for mobile view */
     <div className="space-y-6 md:space-y-8 pb-12 px-2 md:px-0">
       
-      {/* Page Header - Responsive font sizes */}
-      <header>
+      <div>
         <h1 className="text-2xl md:text-3xl font-bold text-slate-800">לוח בקרה אקדמי</h1>
         <p className="text-sm md:text-base text-slate-500">סקירה כללית של הסמסטר</p>
-      </header>
-
-      {/* Top Stats & Quick Actions - Grid handles 1 col on mobile, 3 on desktop */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-        
-        {/* Stats Card */}
-        <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-slate-200">
-          <h3 className="text-[10px] md:text-sm font-medium text-slate-500 uppercase tracking-wider">קורסים פעילים</h3>
-          <p className="text-3xl md:text-4xl font-bold text-slate-900 mt-1 md:mt-2">{courses.length}</p>
-        </div>
-
-        {/* Health Status Card */}
-        <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-slate-200">
-          <h3 className="text-[10px] md:text-sm font-medium text-slate-500 uppercase tracking-wider">סטטוס מערכת</h3>
-          <div className="flex items-center gap-2 mt-2 md:mt-3">
-            <span className={`h-2.5 w-2.5 md:h-3 md:w-3 rounded-full animate-pulse ${healthStatus === 'online' ? 'bg-green-500' : 'bg-red-500'}`}></span>
-            <p className="text-base md:text-lg font-semibold">{healthStatus === 'online' ? 'מחובר' : 'מנותק'}</p>
-          </div>
-        </div>
-
-        {/* Quick Action Card - Optimized for touch on mobile */}
-        <Link 
-          to="/settings" 
-          className="group bg-blue-600 p-5 md:p-6 rounded-xl shadow-md hover:bg-blue-700 transition-all flex flex-row md:flex-col justify-center items-center gap-3 md:gap-0 text-white"
-        >
-          <span className="text-xl md:text-2xl mb-0 md:mb-1 group-hover:scale-125 transition-transform">+</span>
-          <span className="font-bold text-sm md:text-base">רישום קורס חדש</span>
-        </Link>
       </div>
 
       {/* Smart Timeline Section */}
       <div className="mt-6 md:mt-8">
         <Timeline />
+        <MissingSummaries />
       </div>
 
       {/* Courses Quick Access Section */}
@@ -76,6 +49,34 @@ const Dashboard = () => {
           </div>
         )}
       </section>
+
+            {/* Top Stats & Quick Actions - Grid handles 1 col on mobile, 3 on desktop */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+        
+        {/* Stats Card */}
+        <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-slate-200">
+          <h3 className="text-[10px] md:text-sm font-medium text-slate-500 uppercase tracking-wider">קורסים פעילים</h3>
+          <p className="text-3xl md:text-4xl font-bold text-slate-900 mt-1 md:mt-2">{courses.length}</p>
+        </div>
+
+        {/* Health Status Card */}
+        <div className="bg-white p-5 md:p-6 rounded-xl shadow-sm border border-slate-200">
+          <h3 className="text-[10px] md:text-sm font-medium text-slate-500 uppercase tracking-wider">סטטוס מערכת</h3>
+          <div className="flex items-center gap-2 mt-2 md:mt-3">
+            <span className={`h-2.5 w-2.5 md:h-3 md:w-3 rounded-full animate-pulse ${healthStatus === 'online' ? 'bg-green-500' : 'bg-red-500'}`}></span>
+            <p className="text-base md:text-lg font-semibold">{healthStatus === 'online' ? 'מחובר' : 'מנותק'}</p>
+          </div>
+        </div>
+
+        {/* Quick Action Card - Optimized for touch on mobile */}
+        <Link 
+          to="/settings" 
+          className="group bg-blue-600 p-5 md:p-6 rounded-xl shadow-md hover:bg-blue-700 transition-all flex flex-row md:flex-col justify-center items-center gap-3 md:gap-0 text-white"
+        >
+          <span className="text-xl md:text-2xl mb-0 md:mb-1 group-hover:scale-125 transition-transform">+</span>
+          <span className="font-bold text-sm md:text-base">רישום קורס חדש</span>
+        </Link>
+      </div>
     </div>
   );
 };

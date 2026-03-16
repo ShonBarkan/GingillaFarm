@@ -60,14 +60,15 @@ const CoursePage = () => {
         
         {/* Sidebar Sections (Priority info for mobile: Schedule and Exams) */}
         <div className="lg:col-span-4 space-y-6 order-1 lg:order-1">
+          <SyllabusSection syllabus={syllabus} courseId={course.id} />
           <WeeklySchedule course={course} />
           <ReceptionHours hours={reception_hours} courseId={course.id} />
           <ExamsList exams={exams} courseId={course.id} />
+
         </div>
 
         {/* Main Content Sections (Syllabus, History, etc.) */}
         <div className="lg:col-span-8 space-y-6 order-2 lg:order-2">
-          <SyllabusSection syllabus={syllabus} courseId={course.id} />
           <ClassHistory classes={classes} courseId={course.id} />
           <HomeworkList homeworks={homeworks} courseId={course.id} />
         </div>

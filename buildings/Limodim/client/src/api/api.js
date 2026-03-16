@@ -35,17 +35,23 @@ export const deleteClass = (classId) => api.delete(`/classes/${classId}`);
 
 // --- Class Files (PDF Management) ---
 
-export const getClassFiles = (classId) => api.get(`/class-files/${classId}`);
-
-export const uploadPdf = (classId, formData) => 
-  api.post(`/upload-pdf/${classId}`, formData, {
+export const uploadPdf = (courseName, classId, formData) => {
+  const encodedName = encodeURIComponent(courseName);
+  return api.post(`/upload-pdf/${encodedName}/${classId}`, formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
     },
   });
+};
 
-export const deletePdf = (classId, fileName) => 
-  api.delete(`/delete-pdf/${classId}/${fileName}`);
+export const deleteClassFile = (courseName, classId, filePath) => {
+  const encodedName = encodeURIComponent(courseName);
+  return api.post(`/delete-class-file/${encodedName}/${classId}`, { 
+    file_path: filePath 
+  });
+};
+
+export const getClassSummary = (classId) => api.get(`/class-summary/${classId}`);
 
 // --- Homeworks ---
 export const getHomeworks = (courseId = null) => 
@@ -94,6 +100,9 @@ export const deleteSyllabusTopic = (topicId) => api.delete(`/syllabus/${topicId}
 // --- Timeline ---
 export const getTimeline = () => api.get('/timeline');
 
+// --- Stats ---
+export const getMissingSummaries = () => api.get(`/classes/missing-summaries`);
+
 
 export default {
   checkHealth,
@@ -103,9 +112,9 @@ export default {
   createClass,
   updateClass,
   deleteClass,
-  getClassFiles,
+  deleteClassFile,
   uploadPdf,
-  deletePdf,
+  getClassSummary,
   getHomeworks,
   createHomework,
   updateHomework,
@@ -126,4 +135,5 @@ export default {
   updateCourse,
   deleteCourse,
   getTimeline,
+  getMissingSummaries,
 };

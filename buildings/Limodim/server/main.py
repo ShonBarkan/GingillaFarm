@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 import shutil
 from fastapi.staticfiles import StaticFiles
 from fastapi import UploadFile, File
+from sqlalchemy import false
 
 app = FastAPI(title="Limodim - Academic Management")
 
@@ -88,6 +89,7 @@ class HomeworkBase(BaseModel):
     due_date: Optional[str] = None
     grade: Optional[float] = None
     link_to: Optional[str] = None
+    is_done:Optional[bool] = False
 
 
 class ReceptionHourBase(BaseModel):
@@ -100,8 +102,9 @@ class ReceptionHourBase(BaseModel):
 
 
 class ExamsBase(BaseModel):
-    course_id: int  # Required
-    name: str  # Required
+    course_id: int
+    name: str
+    date: Optional[str] = None  # Added for the Timeline
     percentage: Optional[float] = None
     grade: Optional[int] = None
 
@@ -180,7 +183,8 @@ def init_db_tables():
             "name": "TEXT",
             "due_date": "TEXT",
             "grade": "FLOAT",
-            "link_to": "TEXT"
+            "link_to": "TEXT",
+            "is_done": "BOOLEAN DEFAULT FALSE"
         },
         "reception_hours": {
             "id": "SERIAL PRIMARY KEY",
@@ -195,6 +199,7 @@ def init_db_tables():
             "id": "SERIAL PRIMARY KEY",
             "course_id": "INTEGER REFERENCES courses(id)",
             "name": "TEXT NOT NULL",
+            "date": "TEXT",
             "percentage": "FLOAT",
             "grade": "INTEGER"
         },
@@ -800,84 +805,322 @@ async def get_full_course_data(course_id: int):
 
 
 # --- timeline Endpoints ---
-# --- timeline Endpoints ---
-@app.get("/timeline")
-async def get_timeline():
+@app.get("/timeline/future-classes")
+async def get_future_classes():
     try:
+        # Fetching data from DB
         payload_courses = {"action": "find", "table": "courses", "filters": {}}
-        payload_classes = {"action": "find", "table": "classes", "filters": {}}
-
         courses_res = requests.post(f"{DB_MANAGER_URL}/query", json=payload_courses)
-        classes_res = requests.post(f"{DB_MANAGER_URL}/query", json=payload_classes)
 
-        if courses_res.status_code != 200 or classes_res.status_code != 200:
-            return {"past": [], "future": []}
+        if courses_res.status_code != 200:
+            return []
 
-        courses_data = courses_res.json()
-        classes_data = classes_res.json()
+        courses = courses_res.json().get("data", [])
+        today = datetime.now().date()
+        day_map = {"שני": 0, "שלישי": 1, "רביעי": 2, "חמישי": 3, "שישי": 4, "שבת": 5, "ראשון": 6}
 
-        courses = courses_data.get("data", []) if isinstance(courses_data, dict) else courses_data
-        all_performed = classes_data.get("data", []) if isinstance(classes_data, dict) else classes_data
+        future_timeline = []
 
-    except Exception as e:
-        return {"past": [], "future": []}
+        for course in courses:
+            schedule = course.get("schedule")
+            start_date_str = course.get("start_date")
+            end_date_str = course.get("end_date")
 
-    today = datetime.now().date()
-    # Map Hebrew days to Python weekday index (0=Mon, 6=Sun)
-    day_map = {"שני": 0, "שלישי": 1, "רביעי": 2, "חמישי": 3, "שישי": 4, "שבת": 5, "ראשון": 6}
-    full_timeline = []
+            # Basic Validation: Must have schedule and dates
+            if not schedule or not start_date_str or not end_date_str:
+                continue
 
-    for course in courses:
-        schedule = course.get("schedule")
-
-        # Parse schedule if it's stored as a JSON string
-        if isinstance(schedule, str):
             try:
-                schedule = json.loads(schedule)
+                # Parsing course boundaries
+                course_start = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+                course_end = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+
+                # Parse schedule JSON
+                if isinstance(schedule, str):
+                    schedule = json.loads(schedule)
             except:
                 continue
 
-        if not schedule or not isinstance(schedule, list):
-            continue
+            # Look forward from today up to 14 days, but stay within course boundaries
+            for i in range(0, 15):
+                check_date = today + timedelta(days=i)
 
-        # Check window: 14 days back and 14 days forward
-        for i in range(-14, 15):
+                # CRITICAL: Check if date is within course active dates
+                if not (course_start <= check_date <= course_end):
+                    continue
+
+                day_num = check_date.weekday()
+                current_day_name = next((name for name, val in day_map.items() if val == day_num), None)
+
+                for slot in schedule:
+                    if slot.get("day_of_week", "").strip() == current_day_name:
+                        future_timeline.append({
+                            "course_id": course["id"],
+                            "course_name": course["name"],
+                            "date": str(check_date),
+                            "day": current_day_name,
+                            "time": slot.get("start_time", "00:00"),
+                            "class_type": slot.get("class_type", "Lecture"),
+                            "location": f"{slot.get('location_building', '')}/{slot.get('location_room', '')}",
+                            "zoom_link": slot.get("zoom_link")
+                        })
+
+        # Sort by date and time
+        future_timeline.sort(key=lambda x: (x["date"], x["time"]))
+
+        # Return only next 5-6 classes as requested
+        return future_timeline[:6]
+
+    except Exception as e:
+        print(f"Error in future-classes: {e}")
+        return []
+
+
+@app.get("/timeline/past-classes")
+async def get_past_classes():
+    try:
+        # Fetching courses and performed classes
+        payload_courses = {"action": "find", "table": "courses", "filters": {}}
+        payload_performed = {"action": "find", "table": "classes", "filters": {}}
+
+        courses_res = requests.post(f"{DB_MANAGER_URL}/query", json=payload_courses)
+        performed_res = requests.post(f"{DB_MANAGER_URL}/query", json=payload_performed)
+
+        if courses_res.status_code != 200 or performed_res.status_code != 200:
+            return []
+
+        courses = courses_res.json().get("data", [])
+        all_performed = performed_res.json().get("data", [])
+
+        today = datetime.now().date()
+        day_map = {"שני": 0, "שלישי": 1, "רביעי": 2, "חמישי": 3, "שישי": 4, "שבת": 5, "ראשון": 6}
+
+        past_timeline = []
+
+        for course in courses:
+            schedule = course.get("schedule")
+            start_date_str = course.get("start_date")
+            end_date_str = course.get("end_date")
+
+            if not schedule or not start_date_str or not end_date_str:
+                continue
+
+            try:
+                course_start = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+                course_end = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+                if isinstance(schedule, str):
+                    schedule = json.loads(schedule)
+            except:
+                continue
+
+            # Look back 14 days
+            for i in range(-14, 0):
+                check_date = today + timedelta(days=i)
+
+                # Check course boundaries
+                if not (course_start <= check_date <= course_end):
+                    continue
+
+                day_num = check_date.weekday()
+                current_day_name = next((name for name, val in day_map.items() if val == day_num), None)
+
+                for slot in schedule:
+                    if slot.get("day_of_week", "").strip() == current_day_name:
+                        # Check if this specific lesson was recorded
+                        is_performed = any(
+                            str(c.get("course_id")) == str(course.get("id")) and
+                            str(c.get("date_taken")) == str(check_date)
+                            for c in all_performed
+                        )
+
+                        past_timeline.append({
+                            "course_id": course["id"],
+                            "course_name": course["name"],
+                            "date": str(check_date),
+                            "day": current_day_name,
+                            "time": slot.get("start_time", "00:00"),
+                            "is_performed": is_performed,
+                            "class_type": slot.get("class_type", "Lecture"),
+                            "location": f"{slot.get('location_building', '')}/{slot.get('location_room', '')}"
+                        })
+
+        # Sort by date (descending) and time
+        past_timeline.sort(key=lambda x: (x["date"], x["time"]), reverse=True)
+
+        # Return last 6 classes
+        return past_timeline[:6]
+
+    except Exception as e:
+        print(f"Error in past-classes: {e}")
+        return []
+
+
+@app.get("/timeline/future-exams")
+async def get_future_exams():
+    try:
+        # 1. Fetch exams from the dedicated 'exams' table
+        payload_exams = {"action": "find", "table": "exams", "filters": {}}
+        exams_res = requests.post(f"{DB_MANAGER_URL}/query", json=payload_exams)
+
+        # 2. Fetch courses for names
+        payload_courses = {"action": "find", "table": "courses", "filters": {}}
+        courses_res = requests.post(f"{DB_MANAGER_URL}/query", json=payload_courses)
+
+        if exams_res.status_code != 200 or courses_res.status_code != 200:
+            return []
+
+        exams_data = exams_res.json().get("data", [])
+        courses_list = courses_res.json().get("data", [])
+
+        course_map = {c['id']: c['name'] for c in courses_list}
+        today = datetime.now().date()
+        future_exams = []
+
+        for ex in exams_data:
+            exam_date_str = ex.get("date")
+            if not exam_date_str:
+                continue
+
+            try:
+                exam_date = datetime.strptime(exam_date_str, "%Y-%m-%d").date()
+            except:
+                continue
+
+            # Filter: Only today onwards
+            if exam_date >= today:
+                future_exams.append({
+                    "course_id": ex.get("course_id"),
+                    "course_name": course_map.get(ex.get("course_id"), "Unknown"),
+                    "exam_name": ex.get("name", "Unnamed Exam"),
+                    "date": str(exam_date),
+                    "percentage": ex.get("percentage", 0),
+                    "days_left": (exam_date - today).days
+                })
+
+        # Sort by date
+        future_exams.sort(key=lambda x: x["date"])
+        return future_exams
+
+    except Exception as e:
+        print(f"Error in future-exams: {e}")
+        return []
+
+
+@app.get("/timeline/reception-hours")
+async def get_reception_hours():
+    try:
+        # 1. Fetch all reception hours from their own table
+        payload_rh = {"action": "find", "table": "reception_hours", "filters": {}}
+        rh_res = requests.post(f"{DB_MANAGER_URL}/query", json=payload_rh)
+
+        # 2. Fetch courses to get course names
+        payload_courses = {"action": "find", "table": "courses", "filters": {}}
+        courses_res = requests.post(f"{DB_MANAGER_URL}/query", json=payload_courses)
+
+        if rh_res.status_code != 200 or courses_res.status_code != 200:
+            print(f"DB Error: RH {rh_res.status_code}, Courses {courses_res.status_code}")
+            return []
+
+        # Parse data safely
+        rh_data = rh_res.json().get("data", [])
+        courses_list = courses_res.json().get("data", [])
+
+        # Create a mapping for course names {id: name}
+        course_map = {c['id']: c['name'] for c in courses_list}
+
+        today = datetime.now().date()
+        rev_day_map = {
+            0: "שני", 1: "שלישי", 2: "רביעי", 3: "חמישי", 4: "שישי", 5: "שבת", 6: "ראשון"
+        }
+
+        reception_timeline = []
+
+        # 3. Process the results
+        for i in range(0, 11):
             check_date = today + timedelta(days=i)
-            day_num = check_date.weekday()
+            current_day_name = rev_day_map.get(check_date.weekday())
 
-            # Find the Hebrew day name matching the date
-            current_day_name = next((name for name, val in day_map.items() if val == day_num), None)
+            for slot in rh_data:
+                # Clean day string
+                db_day = str(slot.get("day", "")).replace("יום", "").strip()
 
-            for slot in schedule:
-                # Use strip() to ensure no trailing spaces break the match
-                if slot.get("day_of_week", "").strip() == current_day_name:
-                    # Check if a class record exists for this specific date
-                    is_performed = any(
-                        str(c.get("course_id")) == str(course.get("id")) and
-                        str(c.get("date_taken")) == str(check_date)
-                        for c in all_performed
-                    )
-
-                    full_timeline.append({
-                        "course_id": course["id"],
-                        "course_name": course["name"],
+                if db_day == current_day_name:
+                    reception_timeline.append({
+                        "course_id": slot.get("course_id"),
+                        "course_name": course_map.get(slot.get("course_id"), "Unknown"),
+                        "staff_name": slot.get("name", "Staff"),
                         "date": str(check_date),
                         "day": current_day_name,
-                        "time": slot.get("start_time", "00:00"),
-                        "is_performed": is_performed,
-                        "class_type": slot.get("class_type", "Lecture"),
-                        "location": f"{slot.get('location_building', '')}/{slot.get('location_room', '')}",
-                        "zoom_link": slot.get("zoom_link")  # <--- הוספת השדה החדש כאן
+                        "time": slot.get("time", "00:00"),
+                        "location": f"{slot.get('location_building', '')}/{slot.get('location_room', '')}"
                     })
 
-    # Sort all events by date and then by time
-    full_timeline.sort(key=lambda x: (x["date"], x["time"]))
+        # 4. Sort and return
+        reception_timeline.sort(key=lambda x: (x["date"], x["time"]))
 
-    # Slice the results
-    past = [t for t in full_timeline if t["date"] < str(today)][-6:]
-    future = [t for t in full_timeline if t["date"] >= str(today)][:6]
+        print(f"Timeline: Found {len(reception_timeline)} reception hours in the next 10 days")
+        return reception_timeline[:5]
 
-    return {"past": past, "future": future}
+    except Exception as e:
+        print(f"Critical Error in reception-hours: {e}")
+        return []
+
+
+@app.get("/timeline/due-homework")
+async def get_due_homework():
+    try:
+        # Fetch homework and courses
+        payload_hw = {"action": "find", "table": "homeworks", "filters": {}}
+        payload_courses = {"action": "find", "table": "courses", "filters": {}}
+
+        hw_res = requests.post(f"{DB_MANAGER_URL}/query", json=payload_hw)
+        courses_res = requests.post(f"{DB_MANAGER_URL}/query", json=payload_courses)
+
+        if hw_res.status_code != 200 or courses_res.status_code != 200:
+            return []
+
+        homeworks = hw_res.json().get("data", [])
+        courses_list = courses_res.json().get("data", [])
+        courses_dict = {c['id']: c['name'] for c in courses_list}
+
+        today = datetime.now().date()
+        due_hw = []
+
+        for hw in homeworks:
+            # Check if assignment is explicitly done
+            # Handles None (old records) or False
+            if hw.get("is_done") is True:
+                continue
+
+            due_date_str = hw.get("due_date")
+            if not due_date_str:
+                continue
+
+            try:
+                due_date = datetime.strptime(due_date_str, "%Y-%m-%d").date()
+            except:
+                continue
+
+            # We include everything not done (even if it's overdue)
+            due_hw.append({
+                "id": hw["id"],
+                "course_id": hw["course_id"],
+                "course_name": courses_dict.get(hw["course_id"], "Unknown"),
+                "name": hw.get("name", "Untitled Task"),
+                "due_date": str(due_date),
+                "days_left": (due_date - today).days,
+                "link": hw.get("link_to"),
+                "is_done": False
+            })
+
+        # Sort: Oldest deadline first (to highlight what's most urgent/overdue)
+        due_hw.sort(key=lambda x: x["due_date"])
+
+        return due_hw
+
+    except Exception as e:
+        print(f"Error in due-homework: {e}")
+        return []
 
 
 # --- Files Endpoints ---
@@ -1009,6 +1252,7 @@ async def get_class_summary(class_id: int):
     except:
         return []
 
+
 # --- Stats Endpoints ---
 @app.get("/classes/missing-summaries")
 async def get_missing_summaries():
@@ -1056,7 +1300,6 @@ async def get_missing_summaries():
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 
 if __name__ == "__main__":

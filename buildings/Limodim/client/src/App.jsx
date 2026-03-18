@@ -2,10 +2,12 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { useCourses } from './context/CourseContext';
 
-// Components & Pages
+// Components
+import Sidebar from './components/Sidebar';
+
+// Pages
 import Dashboard from './pages/Dashboard';
 import CoursePage from './pages/CoursePage';
-import Sidebar from './components/Sidebar';
 import Settings from './pages/Settings';
 import ClassPage from './pages/ClassPage';
 
@@ -14,26 +16,22 @@ function App() {
 
   return (
     <Router>
-      {/* Layout change: default is flex-col for mobile (stacked), 
-        switching to flex-row-reverse for medium screens and up (desktop sidebar).
-      */}
-      <div className="flex flex-col md:flex-row-reverse h-screen w-full bg-slate-50 text-right overflow-hidden" dir="rtl">
+      <div className="flex flex-col md:flex-row h-screen w-full bg-slate-50 text-right overflow-hidden" dir="rtl">
         
-        {/* Navigation Sidebar - will need responsive logic inside its own component */}
+        {/* Sidebar Area */}
         <Sidebar />
 
         {/* Main Content Area */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8">
+        <main className="flex-1 overflow-y-auto p-4 md:p-8 relative">
           
           {/* Health Indicator (Fixed bottom-left) */}
-          <div className="fixed bottom-4 left-4 md:bottom-6 md:left-6 flex items-center gap-2 bg-white px-3 py-1 rounded-full shadow-md border border-slate-200 z-50">
-            <span className={`flex h-2 w-2 md:h-3 md:w-3 rounded-full ${healthStatus === 'online' ? 'bg-green-500' : 'bg-red-500'}`}></span>
-            <span className="text-[10px] md:text-xs font-medium text-slate-500 uppercase tracking-tighter">
+          <div className="fixed bottom-6 left-6 flex items-center gap-2 bg-white/80 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-sm border border-slate-200 z-50">
+            <span className={`flex h-2 w-2 rounded-full ${healthStatus === 'online' ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></span>
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter">
               {healthStatus || 'Checking...'}
             </span>
           </div>
 
-          {/* Route Switcher */}
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/course/:id" element={<CoursePage />} />

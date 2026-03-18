@@ -1,41 +1,50 @@
-// src/components/CoursePage/ReceptionHours.jsx
 import React, { useState } from 'react';
 import api from '../../api/api';
 import { useCourses } from '../../context/CourseContext';
 
 const ReceptionHours = ({ hours, courseId }) => {
   const { loadFullCourse } = useCourses();
-  const [isEditing, setIsEditing] = useState(false);
+  
+  const [editingId, setEditingId] = useState(null);
+  const [isAdding, setIsAdding] = useState(false);
+  
+  // Buffer state to hold changes during editing to prevent re-renders closing the input
+  const [editBuffer, setEditBuffer] = useState(null);
+
   const [newHour, setNewHour] = useState({ 
-    name: '', 
-    day: 'ראשון', 
-    time: '', 
-    location_building: '', 
-    location_room: '' 
+    name: '', day: 'ראשון', time: '', location_building: '', location_room: '' 
   });
 
-  // Update reception hour - Logic preserved
-  const handleUpdate = async (id, updatedData) => {
+  // Open edit mode and initialize the buffer with current data
+  const startEditing = (rh) => {
+    setEditingId(rh.id);
+    setEditBuffer({ ...rh });
+  };
+
+  // Submit the buffered changes to the server
+  const handleSaveUpdate = async () => {
     try {
-      await api.updateReceptionHour(id, updatedData);
+      await api.updateReceptionHour(editingId, editBuffer);
+      setEditingId(null);
+      setEditBuffer(null);
       await loadFullCourse(courseId);
     } catch (err) {
       console.error("Failed to update reception hour:", err);
     }
   };
 
-  // Create new reception hour - Logic preserved
   const handleAdd = async () => {
+    if (!newHour.name) return alert("יש להזין שם (מרצה/מתרגל)");
     try {
       await api.createReceptionHour({ ...newHour, course_id: courseId });
       setNewHour({ name: '', day: 'ראשון', time: '', location_building: '', location_room: '' });
+      setIsAdding(false);
       await loadFullCourse(courseId);
     } catch (err) {
       console.error("Failed to add reception hour:", err);
     }
   };
 
-  // Delete reception hour - Logic preserved
   const handleDelete = async (id) => {
     if (window.confirm("למחוק שעת קבלה זו?")) {
       try {
@@ -48,103 +57,117 @@ const ReceptionHours = ({ hours, courseId }) => {
   };
 
   return (
-    /* Adjusted outer padding for mobile view (p-4) vs desktop (p-6) */
     <section className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-slate-100">
-      
-      {/* Header with responsive font sizes and better touch target for edit button */}
       <div className="flex justify-between items-center mb-5">
         <h3 className="text-base md:text-lg font-bold text-slate-800 flex items-center gap-2">
           <span className="w-1.5 md:w-2 h-5 md:h-6 bg-yellow-500 rounded-full"></span>
           שעות קבלה
         </h3>
         <button 
-          onClick={() => setIsEditing(!isEditing)}
-          className="text-[11px] md:text-xs font-bold text-yellow-700 hover:bg-yellow-50 px-3 py-1.5 rounded-lg border border-yellow-100 transition active:scale-95"
+          onClick={() => setIsAdding(!isAdding)}
+          className={`text-[11px] md:text-xs font-bold px-3 py-1.5 rounded-lg border transition ${
+            isAdding ? 'bg-slate-100 text-slate-600 border-slate-200' : 'bg-yellow-50 text-yellow-700 border-yellow-100'
+          }`}
         >
-          {isEditing ? 'סיום' : 'עריכה'}
+          {isAdding ? 'ביטול' : '+ הוספה'}
         </button>
       </div>
 
       <div className="space-y-4">
         {hours?.map((rh) => (
-          <div key={rh.id} className="text-sm bg-yellow-50/50 p-4 rounded-xl border border-yellow-100 group relative">
-            {isEditing ? (
-              /* Edit Mode: Enhanced touch targets and spacing */
+          <div key={rh.id} className="text-sm bg-yellow-50/40 p-4 rounded-xl border border-yellow-100 group relative">
+            
+            {editingId === rh.id ? (
               <div className="space-y-3">
                 <input 
-                  className="font-bold bg-white border border-yellow-200 rounded-lg p-2.5 w-full outline-none focus:ring-2 focus:ring-yellow-200"
-                  value={rh.name} 
-                  onChange={(e) => handleUpdate(rh.id, {...rh, name: e.target.value})}
+                  className="font-bold bg-white border border-yellow-200 rounded-lg p-2.5 w-full outline-none focus:ring-2 focus:ring-yellow-400"
+                  value={editBuffer.name} 
+                  onChange={(e) => setEditBuffer({...editBuffer, name: e.target.value})}
                   placeholder="שם (מרצה/מתרגל)"
                 />
-                <div className="grid grid-cols-2 gap-3 text-sm">
+                
+                <div className="grid grid-cols-2 gap-3">
                   <select 
-                    value={rh.day} 
-                    onChange={(e) => handleUpdate(rh.id, {...rh, day: e.target.value})} 
+                    value={editBuffer.day} 
+                    onChange={(e) => setEditBuffer({...editBuffer, day: e.target.value})} 
                     className="bg-white border border-yellow-200 rounded-lg p-2.5 outline-none"
                   >
                     {["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"].map(d => <option key={d} value={d}>{d}</option>)}
                   </select>
                   <input 
                     type="time" 
-                    value={rh.time} 
-                    onChange={(e) => handleUpdate(rh.id, {...rh, time: e.target.value})} 
+                    value={editBuffer.time} 
+                    onChange={(e) => setEditBuffer({...editBuffer, time: e.target.value})} 
                     className="bg-white border border-yellow-200 rounded-lg p-2.5 outline-none" 
                   />
                 </div>
-                <button 
-                  onClick={() => handleDelete(rh.id)} 
-                  className="text-red-500 text-[10px] md:text-xs font-bold hover:underline px-1 py-1"
-                >
-                  מחק שעת קבלה
-                </button>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <input 
+                    placeholder="בניין" 
+                    className="bg-white border border-yellow-200 rounded-lg p-2.5 outline-none" 
+                    value={editBuffer.location_building || ''} 
+                    onChange={(e) => setEditBuffer({...editBuffer, location_building: e.target.value})}
+                  />
+                  <input 
+                    placeholder="חדר" 
+                    className="bg-white border border-yellow-200 rounded-lg p-2.5 outline-none" 
+                    value={editBuffer.location_room || ''} 
+                    onChange={(e) => setEditBuffer({...editBuffer, location_room: e.target.value})}
+                  />
+                </div>
+
+                <div className="flex justify-between items-center pt-2">
+                  <button onClick={() => handleDelete(rh.id)} className="text-red-500 text-[10px] font-bold hover:underline">מחק</button>
+                  <div className="flex gap-2">
+                    <button onClick={() => setEditingId(null)} className="text-slate-500 text-[10px] font-bold px-3 py-1">ביטול</button>
+                    <button onClick={handleSaveUpdate} className="bg-yellow-500 text-white text-[10px] font-bold px-4 py-1.5 rounded-lg shadow-sm">שמור שינויים</button>
+                  </div>
+                </div>
               </div>
             ) : (
-              /* Display Mode: Optimized readability for mobile devices */
-              <>
-                <p className="font-bold text-yellow-900 text-sm md:text-base">{rh.name}</p>
-                <p className="text-yellow-700 text-xs md:text-sm mt-0.5">יום {rh.day} בשעה {rh.time}</p>
-                <div className="flex items-center gap-1.5 text-yellow-600 text-[11px] md:text-xs mt-2 bg-yellow-100/50 w-fit px-2 py-1 rounded-md">
-                   <span>בניין {rh.location_building}</span>
-                   <span className="opacity-30">|</span>
-                   <span>חדר {rh.location_room}</span>
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="font-bold text-yellow-900 text-sm md:text-base">{rh.name}</p>
+                  <p className="text-yellow-700 text-xs md:text-sm mt-0.5">יום {rh.day} בשעה {rh.time}</p>
+                  {(rh.location_building || rh.location_room) && (
+                    <div className="flex items-center gap-1.5 text-yellow-600 text-[11px] md:text-xs mt-2 bg-yellow-100/50 w-fit px-2 py-1 rounded-md">
+                        <span>בניין {rh.location_building}</span>
+                        <span className="opacity-30">|</span>
+                        <span>חדר {rh.location_room}</span>
+                    </div>
+                  )}
                 </div>
-              </>
+                <button 
+                  onClick={() => startEditing(rh)}
+                  className="text-[10px] font-black text-yellow-600 bg-white border border-yellow-200 px-2 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  ערוך
+                </button>
+              </div>
             )}
           </div>
         ))}
 
-        {/* Add New Reception Hour: Mobile-friendly form layout */}
-        {isEditing && (
-          <div className="mt-6 p-4 border-2 border-dashed border-yellow-200 rounded-xl space-y-3 bg-white shadow-inner">
-            <p className="text-[10px] font-black text-yellow-600 uppercase tracking-widest px-1">הוספה חדשה</p>
+        {isAdding && (
+          <div className="mt-4 p-4 border-2 border-dashed border-yellow-200 rounded-xl space-y-3 bg-yellow-50/20">
             <input 
-              placeholder="תיאור (למשל: שעת קבלה מרצה)" 
-              className="text-sm p-3 border border-slate-200 rounded-xl w-full focus:ring-2 focus:ring-yellow-100 outline-none" 
+              placeholder="שם (מרצה/מתרגל)" 
+              className="text-sm p-3 border border-slate-200 rounded-xl w-full focus:ring-2 focus:ring-yellow-400 outline-none" 
               value={newHour.name} 
               onChange={(e) => setNewHour({...newHour, name: e.target.value})} 
             />
             <div className="grid grid-cols-2 gap-3">
-               <select 
-                 value={newHour.day} 
-                 onChange={(e) => setNewHour({...newHour, day: e.target.value})} 
-                 className="text-sm p-3 border border-slate-200 rounded-xl bg-white"
-               >
+               <select value={newHour.day} onChange={(e) => setNewHour({...newHour, day: e.target.value})} className="text-sm p-3 border border-slate-200 rounded-xl bg-white outline-none">
                  {["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"].map(d => <option key={d} value={d}>{d}</option>)}
                </select>
-               <input 
-                 type="time" 
-                 className="text-sm p-3 border border-slate-200 rounded-xl" 
-                 value={newHour.time} 
-                 onChange={(e) => setNewHour({...newHour, time: e.target.value})} 
-               />
+               <input type="time" className="text-sm p-3 border border-slate-200 rounded-xl" value={newHour.time} onChange={(e) => setNewHour({...newHour, time: e.target.value})} />
             </div>
-            <button 
-              onClick={handleAdd} 
-              className="w-full bg-yellow-500 text-white text-sm font-bold py-3 rounded-xl shadow-md active:scale-95 transition-transform"
-            >
-              הוסף שעת קבלה
-            </button>
+            <div className="grid grid-cols-2 gap-3">
+               <input placeholder="בניין" className="text-sm p-3 border border-slate-200 rounded-xl" value={newHour.location_building} onChange={(e) => setNewHour({...newHour, location_building: e.target.value})} />
+               <input placeholder="חדר" className="text-sm p-3 border border-slate-200 rounded-xl" value={newHour.location_room} onChange={(e) => setNewHour({...newHour, location_room: e.target.value})} />
+            </div>
+            <button onClick={handleAdd} className="w-full bg-yellow-500 text-white text-sm font-bold py-3 rounded-xl shadow-md">שמור שעת קבלה</button>
           </div>
         )}
       </div>

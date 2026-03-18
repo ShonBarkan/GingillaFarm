@@ -97,8 +97,12 @@ export const updateSyllabusTopic = (topicId, topicData) =>
 
 export const deleteSyllabusTopic = (topicId) => api.delete(`/syllabus/${topicId}`);
 
-// --- Timeline ---
-export const getTimeline = () => api.get('/timeline');
+// --- Timeline & Dashboard ---
+export const getTimelineFutureClasses = () => api.get('/timeline/future-classes');
+export const getTimelinePastClasses = () => api.get('/timeline/past-classes');
+export const getTimelineFutureExams = () => api.get('/timeline/future-exams');
+export const getTimelineReceptionHours = () => api.get('/timeline/reception-hours');
+export const getTimelineDueHomework = () => api.get('/timeline/due-homework');
 
 // --- Stats ---
 export const getMissingSummaries = () => api.get(`/classes/missing-summaries`);
@@ -134,6 +138,10 @@ export default {
   getCourses,
   updateCourse,
   deleteCourse,
-  getTimeline,
+  getTimelineFutureClasses,
+  getTimelinePastClasses,
+  getTimelineFutureExams,
+  getTimelineReceptionHours,
+  getTimelineDueHomework,
   getMissingSummaries,
 };

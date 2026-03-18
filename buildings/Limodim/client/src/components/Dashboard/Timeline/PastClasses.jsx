@@ -1,38 +1,90 @@
-import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState, useMemo } from 'react';
 import api from '../../../api/api';
-import QuickUpdateModal from '../QuickUpdateModal';
+import PastClassesHeader from './PastClasses/PastClassesHeader';
+import PastClassesFocusItem from './PastClasses/PastClassesFocusItem';
+
 
 const PastClasses = () => {
-  const [past, setPast] = useState([]);
-  const [selectedLesson, setSelectedLesson] = useState(null);
+  const [rawData, setRawData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [sortOrder, setSortOrder] = useState('desc'); // 'desc' | 'asc'
+  const [filter, setFilter] = useState('all'); // 'all' | 'birvouz' | 'summary' | 'ai_summary' | 'ai_quiz'
 
-  const fetchData = () => api.getTimelinePastClasses().then(res => setPast(res.data));
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const res = await api.getTimelinePastClasses();
+      setRawData(res.data || []);
+    } catch (err) {
+      console.error("Failed to fetch past classes:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => { fetchData(); }, []);
 
+  const processedData = useMemo(() => {
+    let data = [...rawData];
+
+    if (filter !== 'all') {
+      data = data.filter(item => item.missing[filter]);
+    }
+
+    data.sort((a, b) => {
+      const dateA = new Date(a.date);
+      const dateB = new Date(b.date);
+      return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+    });
+
+    return data;
+  }, [rawData, filter, sortOrder]);
+
+  useEffect(() => {
+    setCurrentIndex(0);
+  }, [filter, sortOrder]);
+
+  const handleNext = () => {
+    if (currentIndex < processedData.length - 1) {
+      setCurrentIndex(prev => prev + 1);
+    }
+  };
+
+  const handlePrev = () => {
+    if (currentIndex > 0) {
+      setCurrentIndex(prev => prev - 1);
+    }
+  };
+
+  if (loading) return <div className="h-64 flex items-center justify-center">Loading...</div>;
+
   return (
-    <section className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm h-full">
-      <h3 className="font-black text-slate-800 mb-4 flex items-center gap-2">
-        <span className="w-2 h-6 bg-slate-300 rounded-full"></span> שיעורים אחרונים
-      </h3>
-      <div className="space-y-3">
-        {past.map((item, i) => (
-          <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
-            <div className="flex flex-col">
-              <Link to={`/course/${item.course_id}`} className="font-bold text-slate-800 block hover:text-blue-600 text-sm">
-                {item.course_name}
-              </Link>
-              <span className="text-[10px] text-slate-500">{item.date} | {item.time}</span>
-            </div>
-            {item.is_performed ? (
-              <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full border border-emerald-100 uppercase">Synced</span>
-            ) : (
-              <button onClick={() => setSelectedLesson(item)} className="text-[9px] font-black text-red-600 bg-red-50 px-2 py-1 rounded-full border border-red-100 hover:bg-red-100">UPDATE +</button>
-            )}
-          </div>
-        ))}
+    <section className="bg-white p-6 rounded-3xl border border-red-50 shadow-sm h-full flex flex-col">
+      <PastClassesHeader
+        count={processedData.length}
+        sortOrder={sortOrder}
+        setSortOrder={setSortOrder}
+        filter={filter}
+        setFilter={setFilter}
+      />
+
+      <div className="flex-1 mt-6 relative">
+        {processedData.length > 0 ? (
+          <PastClassesFocusItem
+            item={processedData[currentIndex]} 
+            onRefresh={fetchData}
+            onNext={handleNext}
+            onPrev={handlePrev}
+            hasPrev={currentIndex > 0}
+            hasNext={currentIndex < processedData.length - 1}
+            currentIndex={currentIndex}
+            total={processedData.length}
+          />
+        ) : (
+          <PastClassesEmptyState />
+        )}
       </div>
-      {selectedLesson && <QuickUpdateModal lesson={selectedLesson} onClose={() => setSelectedLesson(null)} onRefresh={fetchData} />}
     </section>
   );
 };

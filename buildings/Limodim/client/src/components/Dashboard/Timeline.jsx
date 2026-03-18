@@ -12,12 +12,18 @@ const Timeline = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <FutureExams />
         <DueHomework />
-        <PastClasses />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <FutureClasses />
-        <ReceptionHours />
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        <div className="lg:col-span-2">
+          <PastClasses />
+        </div>
+        <div className="lg:col-span-1">
+          <FutureClasses />
+        </div>
+        <div className="lg:col-span-1">
+          <ReceptionHours />
+        </div>
       </div>
       
     </div>

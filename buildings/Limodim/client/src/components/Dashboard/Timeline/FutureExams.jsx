@@ -9,7 +9,7 @@ const FutureExams = () => {
   useEffect(() => {
     api.getTimelineFutureExams()
       .then(res => {
-        setExams(res.data);
+        setExams(res.data || []);
         setLoading(false);
       })
       .catch(err => {
@@ -28,32 +28,50 @@ const FutureExams = () => {
     </div>
   );
 
-  if (exams.length === 0) return null;
-
   return (
-    <section className="bg-white p-6 rounded-2xl border border-red-100 shadow-sm relative overflow-hidden">
-      <div className="absolute top-0 right-0 w-32 h-32 bg-red-50 rounded-full -mr-16 -mt-16 opacity-50 pointer-events-none"></div>
+    <section className="bg-white p-6 rounded-2xl border border-purple-100 shadow-sm relative overflow-hidden h-full min-h-[200px] flex flex-col">
+      {/* Decorative background element - Purple */}
+      <div className="absolute top-0 right-0 w-32 h-32 bg-purple-50 rounded-full -mr-16 -mt-16 opacity-40 pointer-events-none"></div>
 
+      {/* Header */}
       <h3 className="font-black text-slate-800 mb-4 flex items-center gap-2 relative z-10">
-        <span className="w-2 h-6 bg-red-500 rounded-full"></span> 
+        <span className="w-2 h-6 bg-purple-500 rounded-full"></span> 
         מבחנים קרובים
       </h3>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 relative z-10">
-        {exams.map((exam, i) => (
-          <div key={i} className={`p-3 rounded-xl border flex justify-between items-center transition-all ${
-            exam.days_left <= 3 ? 'bg-red-50 border-red-200 shadow-sm' : 'bg-slate-50 border-slate-100'
-          }`}>
-            <div className="min-w-0">
-              <p className="font-black text-slate-800 text-sm truncate">{exam.course_name}</p>
-              <p className={`text-[10px] font-bold ${exam.days_left <= 3 ? 'text-red-600' : 'text-slate-500'}`}>
-                {exam.exam_name} • {exam.date}
-              </p>
-            </div>
-
-            <TimeBadge daysLeft={exam.days_left} color="red" />
+      <div className="relative z-10 flex-1 flex flex-col justify-start pt-1">
+        {exams.length > 0 ? (
+          /* List State */
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {exams.map((exam, i) => (
+              <div key={i} className={`p-3 rounded-xl border flex justify-between items-center transition-all ${
+                exam.days_left <= 3 
+                  ? 'bg-purple-50 border-purple-200 shadow-sm' 
+                  : 'bg-slate-50 border-slate-100'
+              }`}>
+                <div className="min-w-0">
+                  <p className="font-black text-slate-800 text-sm truncate">{exam.course_name}</p>
+                  <p className={`text-[10px] font-bold ${exam.days_left <= 3 ? 'text-purple-600' : 'text-slate-500'}`}>
+                    {exam.exam_name} • {exam.date}
+                  </p>
+                </div>
+                {/* Assuming TimeBadge supports purple or using a consistent variant */}
+                <TimeBadge daysLeft={exam.days_left} color="purple" />
+              </div>
+            ))}
           </div>
-        ))}
+        ) : (
+          /* Empty State */
+          <div className="flex flex-col items-center py-10">
+            <div className="w-14 h-14 bg-purple-50 rounded-full flex items-center justify-center mb-4 border border-purple-100 shadow-sm">
+              <span className="text-3xl animate-pulse">☀️</span>
+            </div>
+            <h4 className="text-lg font-black text-slate-800">אין מבחנים באופק</h4>
+            <p className="text-[10px] text-purple-600 font-bold uppercase tracking-widest mt-1">
+              לוח המבחנים ריק כרגע. אפשר לנשום לרווחה.
+            </p>
+          </div>
+        )}
       </div>
     </section>
   );

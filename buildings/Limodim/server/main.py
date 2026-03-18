@@ -45,7 +45,7 @@ class ScheduleEntry(BaseModel):
     end_time: str
     location_building: Optional[str] = None
     location_room: Optional[str] = None
-    class_type: Optional[str] = "Lecture"
+    class_type: Optional[str] = "הרצאה"
     zoom_link: Optional[str] = None
 
 
@@ -84,7 +84,7 @@ class ClassBase(BaseModel):
     summary: Optional[List[str]] = []
     location_room: Optional[str] = None
     time: Optional[str] = None
-    class_type: Optional[str] = "Lecture"
+    class_type: Optional[str] = "הרצאה"
     # New AI Fields
     ai_summary: Optional[List[AISubject]] = []
     ai_quiz: Optional[AIQuiz] = None
@@ -358,7 +358,7 @@ async def sync_classes_retroactive():
                             })
                             class_num = len(count_res.json().get("data", [])) + 1
 
-                            class_type = entry.get("class_type", "Lecture")
+                            class_type = entry.get("class_type", "הרצאה")
                             new_class_data = {
                                 "course_id": course["id"],
                                 "name": f"{class_type} - {check_dt.strftime('%d/%m/%Y')}",
@@ -994,7 +994,6 @@ async def get_future_classes():
 
         courses = courses_res.json().get("data", [])
 
-        # Get current date and time
         now = datetime.now()
         today = now.date()
         current_time_str = now.strftime("%H:%M")
@@ -1002,36 +1001,36 @@ async def get_future_classes():
         day_map = {"שני": 0, "שלישי": 1, "רביעי": 2, "חמישי": 3, "שישי": 4, "שבת": 5, "ראשון": 6}
         future_timeline = []
 
-        for course in courses:
-            schedule = course.get("schedule")
-            start_date_str = course.get("start_date")
-            end_date_str = course.get("end_date")
+        # Loop only for today (0) and tomorrow (1)
+        for i in range(0, 2):
+            check_date = today + timedelta(days=i)
+            day_num = check_date.weekday()
+            current_day_name = next((name for name, val in day_map.items() if val == day_num), None)
 
-            if not schedule or not start_date_str or not end_date_str:
-                continue
+            for course in courses:
+                schedule = course.get("schedule")
+                start_date_str = course.get("start_date")
+                end_date_str = course.get("end_date")
 
-            try:
-                course_start = datetime.strptime(start_date_str, "%Y-%m-%d").date()
-                course_end = datetime.strptime(end_date_str, "%Y-%m-%d").date()
-
-                if isinstance(schedule, str):
-                    schedule = json.loads(schedule)
-            except:
-                continue
-
-            for i in range(0, 15):
-                check_date = today + timedelta(days=i)
-
-                if not (course_start <= check_date <= course_end):
+                if not schedule or not start_date_str or not end_date_str:
                     continue
 
-                day_num = check_date.weekday()
-                current_day_name = next((name for name, val in day_map.items() if val == day_num), None)
+                try:
+                    course_start = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+                    course_end = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+
+                    if not (course_start <= check_date <= course_end):
+                        continue
+
+                    if isinstance(schedule, str):
+                        schedule = json.loads(schedule)
+                except:
+                    continue
 
                 for slot in schedule:
                     if slot.get("day_of_week", "").strip() == current_day_name:
 
-                        # Fix: If checking for today, skip classes that have already ended
+                        # Filtering classes that already ended today
                         if check_date == today:
                             class_end_time = slot.get("end_time", "00:00")
                             if class_end_time < current_time_str:
@@ -1044,13 +1043,13 @@ async def get_future_classes():
                             "day": current_day_name,
                             "time": slot.get("start_time", "00:00"),
                             "end_time": slot.get("end_time", "00:00"),
-                            "class_type": slot.get("class_type", "Lecture"),
+                            "class_type": slot.get("class_type", "הרצאה"),
                             "location": f"{slot.get('location_building', '')}/{slot.get('location_room', '')}",
                             "zoom_link": slot.get("zoom_link")
                         })
 
         future_timeline.sort(key=lambda x: (x["date"], x["time"]))
-        return future_timeline[:6]
+        return future_timeline
 
     except Exception as e:
         print(f"Error in future-classes: {e}")
@@ -1180,59 +1179,59 @@ async def get_future_exams():
 @app.get("/timeline/reception-hours")
 async def get_reception_hours():
     try:
-        # 1. Fetch all reception hours from their own table
         payload_rh = {"action": "find", "table": "reception_hours", "filters": {}}
-        rh_res = requests.post(f"{DB_MANAGER_URL}/query", json=payload_rh)
-
-        # 2. Fetch courses to get course names
         payload_courses = {"action": "find", "table": "courses", "filters": {}}
+
+        rh_res = requests.post(f"{DB_MANAGER_URL}/query", json=payload_rh)
         courses_res = requests.post(f"{DB_MANAGER_URL}/query", json=payload_courses)
 
         if rh_res.status_code != 200 or courses_res.status_code != 200:
-            print(f"DB Error: RH {rh_res.status_code}, Courses {courses_res.status_code}")
             return []
 
-        # Parse data safely
         rh_data = rh_res.json().get("data", [])
         courses_list = courses_res.json().get("data", [])
-
-        # Create a mapping for course names {id: name}
         course_map = {c['id']: c['name'] for c in courses_list}
 
-        today = datetime.now().date()
+        now = datetime.now()
+        today = now.date()
+        current_time_str = now.strftime("%H:%M")
+
         rev_day_map = {
             0: "שני", 1: "שלישי", 2: "רביעי", 3: "חמישי", 4: "שישי", 5: "שבת", 6: "ראשון"
         }
 
         reception_timeline = []
 
-        # 3. Process the results
-        for i in range(0, 11):
+        # Only today (0) and tomorrow (1)
+        for i in range(0, 2):
             check_date = today + timedelta(days=i)
             current_day_name = rev_day_map.get(check_date.weekday())
 
             for slot in rh_data:
-                # Clean day string
                 db_day = str(slot.get("day", "")).replace("יום", "").strip()
 
                 if db_day == current_day_name:
+                    slot_time = slot.get("time", "00:00")
+
+                    # Filter out past slots for today
+                    if i == 0 and slot_time < current_time_str:
+                        continue
+
                     reception_timeline.append({
                         "course_id": slot.get("course_id"),
                         "course_name": course_map.get(slot.get("course_id"), "Unknown"),
                         "staff_name": slot.get("name", "Staff"),
                         "date": str(check_date),
                         "day": current_day_name,
-                        "time": slot.get("time", "00:00"),
+                        "time": slot_time,
                         "location": f"{slot.get('location_building', '')}/{slot.get('location_room', '')}"
                     })
 
-        # 4. Sort and return
         reception_timeline.sort(key=lambda x: (x["date"], x["time"]))
-
-        return reception_timeline[:5]
+        return reception_timeline
 
     except Exception as e:
-        print(f"Critical Error in reception-hours: {e}")
+        print(f"Error in reception-hours: {e}")
         return []
 
 

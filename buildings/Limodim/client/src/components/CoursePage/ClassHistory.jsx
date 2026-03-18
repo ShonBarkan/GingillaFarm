@@ -24,7 +24,7 @@ const ClassHistory = ({ classes, courseId }) => {
     location_building: '',
     location_room: '',
     time: '',
-    class_type: 'Lecture'
+    class_type: 'הרצאה'
   });
 
   // Extract unique class types for filtering
@@ -62,7 +62,7 @@ const ClassHistory = ({ classes, courseId }) => {
         location_building: '',
         location_room: '',
         time: '',
-        class_type: 'Lecture'
+        class_type: 'הרצאה'
       });
       
       setIsAdding(false);

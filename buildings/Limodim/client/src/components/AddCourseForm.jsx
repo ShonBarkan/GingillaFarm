@@ -16,7 +16,7 @@ const AddCourseForm = () => {
     link_to: '',
     start_date: '',
     end_date: '',
-    schedule: [{ day_of_week: 'ראשון', start_time: '', end_time: '', location_building: '', location_room: '', class_type: 'Lecture' }],
+    schedule: [{ day_of_week: 'ראשון', start_time: '', end_time: '', location_building: '', location_room: '', class_type: 'הרצאה' }],
     exams: [{ name: '', percentage: 0 }],
     reception_hours: [{ name: 'מרצה', day: 'ראשון', time: '', location_building: '', location_room: '' }],
     syllabus: [{ topic_num: 1, topic: '' }]
@@ -142,7 +142,7 @@ const AddCourseForm = () => {
       <section className="space-y-4">
         <div className="flex justify-between items-center">
           <h3 className="text-lg md:text-xl font-bold text-slate-800 border-s-4 border-indigo-500 pr-3">לו"ז שבועי קבוע</h3>
-          <button type="button" onClick={() => addRow('schedule', { day_of_week: 'ראשון', start_time: '', end_time: '', location_building: '', location_room: '', class_type: 'Lecture' })} className="text-[10px] md:text-xs bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full font-bold">+ הוסף יום</button>
+          <button type="button" onClick={() => addRow('schedule', { day_of_week: 'ראשון', start_time: '', end_time: '', location_building: '', location_room: '', class_type: 'הרצאה' })} className="text-[10px] md:text-xs bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full font-bold">+ הוסף יום</button>
         </div>
         {courseInfo.schedule.map((slot, i) => (
           <div key={i} className="grid grid-cols-2 md:grid-cols-6 gap-2 md:gap-3 p-3 bg-slate-50 rounded-lg relative">

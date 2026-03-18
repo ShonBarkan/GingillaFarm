@@ -25,7 +25,7 @@ const WeeklySchedule = ({ course }) => {
       end_time: "00:00",
       location_building: "",
       location_room: "",
-      class_type: "Lecture",
+      class_type: "הרצאה",
       zoom_link: ""
     };
     const updated = [...localSchedule, newSlot];
@@ -110,8 +110,8 @@ const WeeklySchedule = ({ course }) => {
                         value={slot.class_type}
                         onChange={(e) => updateSlot(index, 'class_type', e.target.value)}
                       >
-                        <option value="Lecture">הרצאה</option>
-                        <option value="Tutorial">תרגול</option>
+                        <option value="הרצאה">הרצאה</option>
+                        <option value="תרגול">תרגול</option>
                       </select>
                     </div>
 
@@ -157,7 +157,7 @@ const WeeklySchedule = ({ course }) => {
                     <div className="flex items-center gap-2 mb-1">
                       <span className="font-bold text-blue-900 text-sm md:text-base">יום {slot.day_of_week}</span>
                       <span className="text-[9px] md:text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-black uppercase">
-                        {slot.class_type === 'Lecture' ? 'הרצאה' : 'תרגול'}
+                        {slot.class_type}
                       </span>
                     </div>
                     <div className="text-[12px] md:text-sm text-blue-700 flex flex-wrap gap-x-2">

@@ -1,8 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useCourses } from '../context/CourseContext';
-import Timeline from '../components/Dashboard/Timeline'; // Import the new Timeline component
-import MissingSummaries from '../components/Dashboard/MissingSummaries';
+import Timeline from '../components/Dashboard/Timeline';
 
 const Dashboard = () => {
   const { courses, healthStatus } = useCourses();
@@ -19,7 +18,6 @@ const Dashboard = () => {
       {/* Smart Timeline Section */}
       <div className="mt-6 md:mt-8">
         <Timeline />
-        <MissingSummaries />
       </div>
 
       {/* Courses Quick Access Section */}

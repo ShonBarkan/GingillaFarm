@@ -1,10 +1,8 @@
 import json
 import os
 import urllib
-from datetime import datetime, timedelta
 import uvicorn
 import requests
-from datetime import date
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, field_validator
@@ -13,9 +11,11 @@ from dotenv import load_dotenv
 import shutil
 from fastapi.staticfiles import StaticFiles
 from fastapi import UploadFile, File
-from sqlalchemy import false
+from datetime import datetime, timedelta, date
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 app = FastAPI(title="Limodim - Academic Management")
+scheduler = AsyncIOScheduler()
 
 app.add_middleware(
     CORSMiddleware,
@@ -49,6 +49,32 @@ class ScheduleEntry(BaseModel):
     zoom_link: Optional[str] = None
 
 
+class AISubject(BaseModel):
+    title: str
+    description: str  # Supports Markdown & LaTeX (e.g. $ \alpha \cap \beta $)
+    sub_topics: Optional[List['AISubject']] = []  # Hierarchical tree structure
+
+
+class AIQuizQuestion(BaseModel):
+    question: str
+    question_type: str = "multiple_choice"  # e.g., "multiple_choice", "boolean", "open"
+    correct_answer: str
+    distractors: List[str]  # Wrong answers
+    explanation: Optional[str] = None  # Why this is the right answer
+    mapped_topic: Optional[str] = None  # Links to an AISubject title
+
+
+class AIQuizAttempt(BaseModel):
+    attempt_date: str  # ISO format date
+    score: float
+    total_questions: int
+
+
+class AIQuiz(BaseModel):
+    questions: List[AIQuizQuestion] = []
+    history: List[AIQuizAttempt] = []  # Track results over time
+
+
 class ClassBase(BaseModel):
     course_id: int
     name: str
@@ -59,18 +85,23 @@ class ClassBase(BaseModel):
     location_room: Optional[str] = None
     time: Optional[str] = None
     class_type: Optional[str] = "Lecture"
+    # New AI Fields
+    ai_summary: Optional[List[AISubject]] = []
+    ai_quiz: Optional[AIQuiz] = None
 
-    @field_validator('summary', mode='before')
+    # This ensures that JSON strings from the DB are parsed into objects/lists
+    @field_validator('summary', 'ai_summary', 'ai_quiz', mode='before')
     @classmethod
-    def ensure_list(cls, v):
-        if isinstance(v, str):
+    def ensure_json_parsed(cls, v):
+        if isinstance(v, str) and v.strip():
             try:
                 return json.loads(v)
             except:
-                return []
-        if v is None:
-            return []
-        return v
+                return v
+        return v or ([] if cls is not AIQuiz else {"questions": [], "history": []})
+
+
+AISubject.model_rebuild()
 
 
 class ClassFileBase(BaseModel):
@@ -89,7 +120,7 @@ class HomeworkBase(BaseModel):
     due_date: Optional[str] = None
     grade: Optional[float] = None
     link_to: Optional[str] = None
-    is_done:Optional[bool] = False
+    is_done: Optional[bool] = False
 
 
 class ReceptionHourBase(BaseModel):
@@ -172,6 +203,8 @@ def init_db_tables():
             "number": "INTEGER",
             "birvouz": "TEXT",
             "summary": "JSONB DEFAULT '[]'::jsonb",
+            "ai_summary": "JSONB DEFAULT '[]'::jsonb",
+            "ai_quiz": "JSONB DEFAULT '{\"questions\": [], \"history\": []}'::jsonb",
             "location_building": "TEXT",
             "location_room": "TEXT",
             "time": "TEXT",
@@ -234,12 +267,131 @@ def init_db_tables():
             print(f"CRITICAL: Could not connect to DB Manager at {DB_MANAGER_URL}")
 
 
-# --- API Endpoints ---
+async def sync_classes_retroactive():
+    print("--- Starting Retroactive Class Sync ---")
+    try:
+        # Fetch all courses
+        courses_res = requests.post(f"{DB_MANAGER_URL}/query", json={
+            "action": "find",
+            "table": "courses",
+            "filters": {}
+        })
+
+        if courses_res.status_code != 200:
+            print(f"Sync Error: Failed to fetch courses. Status: {courses_res.status_code}")
+            return
+
+        courses = courses_res.json().get("data", [])
+        print(f"Found {len(courses)} courses to process.")
+
+        now = datetime.now()
+        today = now.date()
+        current_time_str = now.strftime("%H:%M")
+
+        # Map for day names as they appear in the Hebrew calendar logic
+        day_map = {0: "שני", 1: "שלישי", 2: "רביעי", 3: "חמישי", 4: "שישי", 5: "שבת", 6: "ראשון"}
+
+        for course in courses:
+            start_date_str = course.get("start_date")
+            if not start_date_str:
+                continue
+
+            try:
+                start_dt = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+            except ValueError:
+                continue
+
+            # Determine the end limit for synchronization
+            end_date_str = course.get("end_date")
+            end_limit = today
+            if end_date_str:
+                try:
+                    potential_end = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+                    if potential_end < today:
+                        end_limit = potential_end
+                except ValueError:
+                    pass
+
+            schedule = course.get("schedule", [])
+            if isinstance(schedule, str):
+                schedule = json.loads(schedule)
+
+            if not schedule:
+                continue
+
+            check_dt = start_dt
+            while check_dt <= end_limit:
+                day_name_hebrew = day_map.get(check_dt.weekday())
+
+                for entry in schedule:
+                    # Clean "יום" prefix from DB entry if exists to ensure match
+                    db_day = entry.get("day_of_week", "").replace("יום", "").strip()
+
+                    if db_day == day_name_hebrew:
+                        # If the class is today, only sync if it has already ended
+                        if check_dt == today:
+                            if entry.get("end_time") > current_time_str:
+                                continue
+
+                        date_taken_str = check_dt.strftime("%Y-%m-%d")
+                        start_time = entry.get("start_time")
+
+                        # Check if this specific instance already exists in the 'classes' table
+                        exists_res = requests.post(f"{DB_MANAGER_URL}/query", json={
+                            "action": "find",
+                            "table": "classes",
+                            "filters": {
+                                "course_id": course["id"],
+                                "date_taken": date_taken_str,
+                                "time": start_time
+                            }
+                        })
+
+                        if exists_res.status_code == 200 and len(exists_res.json().get("data", [])) == 0:
+                            print(f"Adding missing class: {course['name']} on {date_taken_str}")
+
+                            # Calculate the next lesson number for this course
+                            count_res = requests.post(f"{DB_MANAGER_URL}/query", json={
+                                "action": "find",
+                                "table": "classes",
+                                "filters": {"course_id": course["id"]}
+                            })
+                            class_num = len(count_res.json().get("data", [])) + 1
+
+                            class_type = entry.get("class_type", "Lecture")
+                            new_class_data = {
+                                "course_id": course["id"],
+                                "name": f"{class_type} - {check_dt.strftime('%d/%m/%Y')}",
+                                "date_taken": date_taken_str,
+                                "number": class_num,
+                                "time": start_time,
+                                "class_type": class_type,
+                                "location_room": entry.get("location_room"),
+                                "summary": []
+                            }
+
+                            requests.post(f"{DB_MANAGER_URL}/query", json={
+                                "action": "insert",
+                                "table": "classes",
+                                "data": new_class_data
+                            })
+
+                check_dt += timedelta(days=1)
+        print("--- Sync Completed Successfully ---")
+
+    except Exception as e:
+        print(f"Cron Error: {e}")
+
 
 @app.on_event("startup")
 async def startup_event():
     init_db_tables()
+    scheduler.add_job(sync_classes_retroactive, 'cron', hour='7-20', minute=1)  # (e.g., 01:02, 02:02, etc.)
+    scheduler.start()
+    await sync_classes_retroactive()  # Trigger an immediate sync on server startup
 
+
+# --- API Endpoints ---
 
 @app.get("/health")
 def health_check():
@@ -411,18 +563,29 @@ async def get_classes(course_id: Optional[int] = None):
 
 @app.put("/classes/{class_id}")
 async def update_class(class_id: int, class_data: ClassBase):
-    """Update an existing class entry."""
+    """Update an existing class entry including AI summary and quiz data."""
+
+    # Convert Pydantic model to a dictionary
+    # Nested models (AISubject, AIQuiz) will be converted to nested dicts/lists
     data = class_data.dict()
 
-    # 1. Handle date conversion if exists
-    if data.get("date"):
-        data["date"] = data["date"].isoformat()
+    # 1. Handle date conversion if date_taken exists
+    if data.get("date_taken"):
+        # Ensure it's stored as a string if it came as a date object
+        if isinstance(data["date_taken"], (date, datetime)):
+            data["date_taken"] = data["date_taken"].isoformat()
 
-    # 2. CRITICAL: Convert summary list to JSON string for DB storage
-    # This prevents the "Input should be a valid list" or "must be str, not list" errors
-    if "summary" in data and isinstance(data["summary"], list):
-        data["summary"] = json.dumps(data["summary"])
+    # 2. CRITICAL: Convert all JSONB fields to JSON strings for DB storage
+    # This ensures the DB Manager receives a valid JSON string for Postgres JSONB columns
+    json_fields = ["summary", "ai_summary", "ai_quiz"]
 
+    for field in json_fields:
+        if field in data and data[field] is not None:
+            # We only stringify if it's currently a list or a dict
+            if isinstance(data[field], (list, dict)):
+                data[field] = json.dumps(data[field])
+
+    # 3. Prepare the payload for the DB Manager
     payload = {
         "action": "update",
         "table": "classes",
@@ -432,11 +595,26 @@ async def update_class(class_id: int, class_data: ClassBase):
 
     try:
         response = requests.post(f"{DB_MANAGER_URL}/query", json=payload)
+
         if response.status_code == 200:
             return response.json()
-        raise HTTPException(status_code=response.status_code, detail=response.text)
+
+        # If DB Manager returned an error (e.g., 400, 500)
+        raise HTTPException(
+            status_code=response.status_code,
+            detail=f"DB Manager Error: {response.text}"
+        )
+
     except requests.exceptions.ConnectionError:
-        raise HTTPException(status_code=503, detail="DB Manager unreachable")
+        raise HTTPException(
+            status_code=503,
+            detail="CRITICAL: Could not connect to DB Manager"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal Server Error: {str(e)}"
+        )
 
 
 @app.delete("/classes/{class_id}")
@@ -808,7 +986,6 @@ async def get_full_course_data(course_id: int):
 @app.get("/timeline/future-classes")
 async def get_future_classes():
     try:
-        # Fetching data from DB
         payload_courses = {"action": "find", "table": "courses", "filters": {}}
         courses_res = requests.post(f"{DB_MANAGER_URL}/query", json=payload_courses)
 
@@ -816,9 +993,13 @@ async def get_future_classes():
             return []
 
         courses = courses_res.json().get("data", [])
-        today = datetime.now().date()
-        day_map = {"שני": 0, "שלישי": 1, "רביעי": 2, "חמישי": 3, "שישי": 4, "שבת": 5, "ראשון": 6}
 
+        # Get current date and time
+        now = datetime.now()
+        today = now.date()
+        current_time_str = now.strftime("%H:%M")
+
+        day_map = {"שני": 0, "שלישי": 1, "רביעי": 2, "חמישי": 3, "שישי": 4, "שבת": 5, "ראשון": 6}
         future_timeline = []
 
         for course in courses:
@@ -826,26 +1007,21 @@ async def get_future_classes():
             start_date_str = course.get("start_date")
             end_date_str = course.get("end_date")
 
-            # Basic Validation: Must have schedule and dates
             if not schedule or not start_date_str or not end_date_str:
                 continue
 
             try:
-                # Parsing course boundaries
                 course_start = datetime.strptime(start_date_str, "%Y-%m-%d").date()
                 course_end = datetime.strptime(end_date_str, "%Y-%m-%d").date()
 
-                # Parse schedule JSON
                 if isinstance(schedule, str):
                     schedule = json.loads(schedule)
             except:
                 continue
 
-            # Look forward from today up to 14 days, but stay within course boundaries
             for i in range(0, 15):
                 check_date = today + timedelta(days=i)
 
-                # CRITICAL: Check if date is within course active dates
                 if not (course_start <= check_date <= course_end):
                     continue
 
@@ -854,21 +1030,26 @@ async def get_future_classes():
 
                 for slot in schedule:
                     if slot.get("day_of_week", "").strip() == current_day_name:
+
+                        # Fix: If checking for today, skip classes that have already ended
+                        if check_date == today:
+                            class_end_time = slot.get("end_time", "00:00")
+                            if class_end_time < current_time_str:
+                                continue
+
                         future_timeline.append({
                             "course_id": course["id"],
                             "course_name": course["name"],
                             "date": str(check_date),
                             "day": current_day_name,
                             "time": slot.get("start_time", "00:00"),
+                            "end_time": slot.get("end_time", "00:00"),
                             "class_type": slot.get("class_type", "Lecture"),
                             "location": f"{slot.get('location_building', '')}/{slot.get('location_room', '')}",
                             "zoom_link": slot.get("zoom_link")
                         })
 
-        # Sort by date and time
         future_timeline.sort(key=lambda x: (x["date"], x["time"]))
-
-        # Return only next 5-6 classes as requested
         return future_timeline[:6]
 
     except Exception as e:
@@ -879,7 +1060,6 @@ async def get_future_classes():
 @app.get("/timeline/past-classes")
 async def get_past_classes():
     try:
-        # Fetching courses and performed classes
         payload_courses = {"action": "find", "table": "courses", "filters": {}}
         payload_performed = {"action": "find", "table": "classes", "filters": {}}
 
@@ -889,66 +1069,57 @@ async def get_past_classes():
         if courses_res.status_code != 200 or performed_res.status_code != 200:
             return []
 
-        courses = courses_res.json().get("data", [])
+        courses_list = courses_res.json().get("data", [])
         all_performed = performed_res.json().get("data", [])
 
-        today = datetime.now().date()
-        day_map = {"שני": 0, "שלישי": 1, "רביעי": 2, "חמישי": 3, "שישי": 4, "שבת": 5, "ראשון": 6}
+        course_map = {str(c["id"]): c["name"] for c in courses_list}
 
-        past_timeline = []
+        incomplete_classes = []
 
-        for course in courses:
-            schedule = course.get("schedule")
-            start_date_str = course.get("start_date")
-            end_date_str = course.get("end_date")
+        for c in all_performed:
+            def parse_field(field):
+                if not field: return None
+                if isinstance(field, str):
+                    try:
+                        return json.loads(field)
+                    except:
+                        return None
+                return field
 
-            if not schedule or not start_date_str or not end_date_str:
-                continue
+            birvouz = c.get("birvouz")
+            summary = parse_field(c.get("summary"))
+            ai_summary = parse_field(c.get("ai_summary"))
+            ai_quiz = parse_field(c.get("ai_quiz"))
 
-            try:
-                course_start = datetime.strptime(start_date_str, "%Y-%m-%d").date()
-                course_end = datetime.strptime(end_date_str, "%Y-%m-%d").date()
-                if isinstance(schedule, str):
-                    schedule = json.loads(schedule)
-            except:
-                continue
+            is_missing_birvouz = not birvouz or str(birvouz).strip() == ""
+            is_missing_summary = not summary or len(summary) == 0
+            is_missing_ai_summary = not ai_summary or len(ai_summary) == 0
 
-            # Look back 14 days
-            for i in range(-14, 0):
-                check_date = today + timedelta(days=i)
+            is_missing_ai_quiz = (
+                    not ai_quiz or
+                    not isinstance(ai_quiz, dict) or
+                    not ai_quiz.get("questions") or
+                    len(ai_quiz.get("questions")) == 0
+            )
 
-                # Check course boundaries
-                if not (course_start <= check_date <= course_end):
-                    continue
+            if is_missing_birvouz or is_missing_summary or is_missing_ai_summary or is_missing_ai_quiz:
+                incomplete_classes.append({
+                    "id": c.get("id"),
+                    "course_id": c.get("course_id"),
+                    "course_name": course_map.get(str(c.get("course_id")), "Unknown Course"),
+                    "class_name": c.get("name"),
+                    "date": c.get("date_taken"),
+                    "missing": {
+                        "birvouz": is_missing_birvouz,
+                        "summary": is_missing_summary,
+                        "ai_summary": is_missing_ai_summary,
+                        "ai_quiz": is_missing_ai_quiz
+                    }
+                })
 
-                day_num = check_date.weekday()
-                current_day_name = next((name for name, val in day_map.items() if val == day_num), None)
+        incomplete_classes.sort(key=lambda x: x["date"] if x["date"] else "0000-00-00", reverse=True)
 
-                for slot in schedule:
-                    if slot.get("day_of_week", "").strip() == current_day_name:
-                        # Check if this specific lesson was recorded
-                        is_performed = any(
-                            str(c.get("course_id")) == str(course.get("id")) and
-                            str(c.get("date_taken")) == str(check_date)
-                            for c in all_performed
-                        )
-
-                        past_timeline.append({
-                            "course_id": course["id"],
-                            "course_name": course["name"],
-                            "date": str(check_date),
-                            "day": current_day_name,
-                            "time": slot.get("start_time", "00:00"),
-                            "is_performed": is_performed,
-                            "class_type": slot.get("class_type", "Lecture"),
-                            "location": f"{slot.get('location_building', '')}/{slot.get('location_room', '')}"
-                        })
-
-        # Sort by date (descending) and time
-        past_timeline.sort(key=lambda x: (x["date"], x["time"]), reverse=True)
-
-        # Return last 6 classes
-        return past_timeline[:6]
+        return incomplete_classes
 
     except Exception as e:
         print(f"Error in past-classes: {e}")
@@ -1058,7 +1229,6 @@ async def get_reception_hours():
         # 4. Sort and return
         reception_timeline.sort(key=lambda x: (x["date"], x["time"]))
 
-        print(f"Timeline: Found {len(reception_timeline)} reception hours in the next 10 days")
         return reception_timeline[:5]
 
     except Exception as e:

@@ -12,6 +12,12 @@ const PastClassesFocusItem = ({ item, onRefresh, onNext, onPrev, hasPrev, hasNex
   }, [item.id, item.birvouz]);
 
   const handleQuickSave = async () => {
+      if (!item.id) {
+        console.error("Missing ID: Cannot update a class without a valid ID.");
+        alert("שגיאה: לא ניתן לעדכן שיעור ללא מזהה תקין.");
+        return;
+      }
+
     setIsSubmitting(true);
     try {
       const updateData = {
@@ -22,15 +28,12 @@ const PastClassesFocusItem = ({ item, onRefresh, onNext, onPrev, hasPrev, hasNex
         birvouz: birvouzText,
       };
 
-      if (item.id) {
-        await api.updateClass(item.id, updateData);
-      } else {
-        await api.createClass(updateData);
-      }
+      await api.updateClass(item.id, updateData);
+      
       onRefresh();
     } catch (err) {
-      console.error("Save failed:", err);
-      alert("שגיאה בשמירה. וודא שכל השדות תקינים.");
+      console.error("Update failed:", err);
+      alert("שגיאה בעדכון. וודא שכל השדות תקינים.");
     } finally {
       setIsSubmitting(false);
     }

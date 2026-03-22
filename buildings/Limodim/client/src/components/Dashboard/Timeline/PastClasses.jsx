@@ -2,14 +2,14 @@ import React, { useEffect, useState, useMemo } from 'react';
 import api from '../../../api/api';
 import PastClassesHeader from './PastClasses/PastClassesHeader';
 import PastClassesFocusItem from './PastClasses/PastClassesFocusItem';
-
+import PastClassesEmptyState from './PastClasses/PastClassesEmptyState';
 
 const PastClasses = () => {
   const [rawData, setRawData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [sortOrder, setSortOrder] = useState('desc'); // 'desc' | 'asc'
-  const [filter, setFilter] = useState('all'); // 'all' | 'birvouz' | 'summary' | 'ai_summary' | 'ai_quiz'
+  const [sortOrder, setSortOrder] = useState('desc'); 
+  const [filter, setFilter] = useState('birvouz'); 
 
   const fetchData = async () => {
     setLoading(true);
@@ -23,13 +23,15 @@ const PastClasses = () => {
     }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { 
+    fetchData(); 
+  }, []);
 
   const processedData = useMemo(() => {
     let data = [...rawData];
 
     if (filter !== 'all') {
-      data = data.filter(item => item.missing[filter]);
+      data = data.filter(item => item.missing && item.missing[filter]);
     }
 
     data.sort((a, b) => {
@@ -43,7 +45,7 @@ const PastClasses = () => {
 
   useEffect(() => {
     setCurrentIndex(0);
-  }, [filter, sortOrder]);
+  }, [filter, sortOrder, rawData.length]);
 
   const handleNext = () => {
     if (currentIndex < processedData.length - 1) {
@@ -57,7 +59,13 @@ const PastClasses = () => {
     }
   };
 
-  if (loading) return <div className="h-64 flex items-center justify-center">Loading...</div>;
+  if (loading) {
+    return (
+      <div className="h-64 flex items-center justify-center text-slate-400 font-bold animate-pulse">
+        Loading classes...
+      </div>
+    );
+  }
 
   return (
     <section className="bg-white p-6 rounded-3xl border border-red-50 shadow-sm h-full flex flex-col">
@@ -70,7 +78,7 @@ const PastClasses = () => {
       />
 
       <div className="flex-1 mt-6 relative">
-        {processedData.length > 0 ? (
+        {processedData.length > 0 && processedData[currentIndex] ? (
           <PastClassesFocusItem
             item={processedData[currentIndex]} 
             onRefresh={fetchData}

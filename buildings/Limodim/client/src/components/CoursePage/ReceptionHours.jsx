@@ -4,24 +4,18 @@ import { useCourses } from '../../context/CourseContext';
 
 const ReceptionHours = ({ hours, courseId }) => {
   const { loadFullCourse } = useCourses();
-  
   const [editingId, setEditingId] = useState(null);
   const [isAdding, setIsAdding] = useState(false);
-  
-  // Buffer state to hold changes during editing to prevent re-renders closing the input
   const [editBuffer, setEditBuffer] = useState(null);
-
   const [newHour, setNewHour] = useState({ 
     name: '', day: 'ראשון', time: '', location_building: '', location_room: '' 
   });
 
-  // Open edit mode and initialize the buffer with current data
   const startEditing = (rh) => {
     setEditingId(rh.id);
     setEditBuffer({ ...rh });
   };
 
-  // Submit the buffered changes to the server
   const handleSaveUpdate = async () => {
     try {
       await api.updateReceptionHour(editingId, editBuffer);

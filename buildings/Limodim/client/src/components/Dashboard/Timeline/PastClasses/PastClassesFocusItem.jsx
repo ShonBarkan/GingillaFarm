@@ -14,21 +14,23 @@ const PastClassesFocusItem = ({ item, onRefresh, onNext, onPrev, hasPrev, hasNex
   const handleQuickSave = async () => {
     setIsSubmitting(true);
     try {
-      const defaultName = item.class_name || `${item.class_type || 'שיעור'} - ${item.date}`;
-      if (item.id && !item.missing?.birvouz_record_missing) {
-         await api.updateClass(item.id, { ...item, birvouz: birvouzText });
+      const updateData = {
+        course_id: item.course_id,
+        name: item.class_name || `שיעור מ-${item.date}`,
+        number: item.number || 1,
+        date_taken: item.date,
+        birvouz: birvouzText,
+      };
+
+      if (item.id) {
+        await api.updateClass(item.id, updateData);
       } else {
-        await api.createClass({
-          course_id: item.course_id,
-          name: defaultName,
-          number: item.number || 1,
-          date_taken: item.date,
-          birvouz: birvouzText,
-        });
+        await api.createClass(updateData);
       }
       onRefresh();
     } catch (err) {
       console.error("Save failed:", err);
+      alert("שגיאה בשמירה. וודא שכל השדות תקינים.");
     } finally {
       setIsSubmitting(false);
     }
@@ -37,6 +39,7 @@ const PastClassesFocusItem = ({ item, onRefresh, onNext, onPrev, hasPrev, hasNex
   return (
     <div className="relative h-full flex items-center px-2" dir="rtl">
       
+      {/* Navigation Arrows */}
       <button 
         disabled={!hasPrev}
         onClick={onPrev}
@@ -55,6 +58,7 @@ const PastClassesFocusItem = ({ item, onRefresh, onNext, onPrev, hasPrev, hasNex
 
       <div className="w-full bg-white rounded-3xl p-7 border border-red-50 shadow-[0_8px_30px_rgb(220,38,38,0.03)] flex flex-col h-full min-h-[380px]">
         
+        {/* Top Header */}
         <div className="flex justify-between items-start mb-6">
           <div className="flex-1">
             <h3 className="text-3xl font-black text-slate-900 leading-tight tracking-tight">
@@ -72,31 +76,11 @@ const PastClassesFocusItem = ({ item, onRefresh, onNext, onPrev, hasPrev, hasNex
           </div>
         </div>
 
-        <div className="flex-1 flex flex-col md:flex-row gap-6">
-          <div className="flex-[2] flex flex-col h-full">
-            <div className="flex items-center justify-between mb-2 px-1">
-               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">תיאור השיעור (בירווז)</label>
-               {item.birvouz && <span className="text-[9px] font-bold text-emerald-500 flex items-center gap-1">✓ שמור במערכת</span>}
-            </div>
-            <textarea 
-              className="w-full flex-1 p-5 rounded-2xl border border-slate-100 text-sm focus:ring-2 focus:ring-red-500/10 focus:border-red-500 outline-none transition-all resize-none bg-slate-50/30 text-slate-700 font-medium leading-relaxed"
-              placeholder="מה למדנו היום? הוסף פירוט כאן..."
-              value={birvouzText}
-              onChange={(e) => setBirvouzText(e.target.value)}
-            />
-            {/* Save button now Red for urgency */}
-            <button 
-              onClick={handleQuickSave}
-              disabled={isSubmitting}
-              className="mt-3 w-full bg-red-600 text-white py-3 rounded-xl font-black text-xs hover:bg-red-700 transition-all shadow-md active:scale-[0.98] disabled:opacity-50"
-            >
-              {isSubmitting ? 'מעדכן...' : 'עדכן בירווז'}
-            </button>
-          </div>
-
-          <div className="flex-1 flex flex-col border-r border-slate-100 pr-6">
+        {/* Content Area */}
+        <div className="flex-1 flex flex-col md:flex gap-6">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">משימות להשלמה</label>
-            <div className="flex flex-col gap-3">
+            
+            <div className="flex flex-row gap-3">
               <PastClassesBadge type="summary" isMissing={item.missing.summary} />
               <PastClassesBadge type="ai_summary" isMissing={item.missing.ai_summary} />
               <PastClassesBadge type="ai_quiz" isMissing={item.missing.ai_quiz} />
@@ -109,17 +93,43 @@ const PastClassesFocusItem = ({ item, onRefresh, onNext, onPrev, hasPrev, hasNex
               )}
             </div>
 
+          {item.missing.birvouz && (
+
+          <div className="flex-[2] flex flex-col h-full">
+            <div className="flex items-center justify-between mb-2 px-1">
+               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">תיאור השיעור (בירווז)</label>
+            </div>
+            <div className="flex flex-col h-full">
+              <textarea 
+                className="w-full flex-1 p-5 rounded-2xl border border-slate-100 text-sm focus:ring-2 focus:ring-red-500/10 focus:border-red-500 outline-none transition-all resize-none bg-slate-50/30 text-slate-700 font-medium leading-relaxed"
+                placeholder="מה למדנו היום? הוסף פירוט כאן..."
+                value={birvouzText}
+                onChange={(e) => setBirvouzText(e.target.value)}
+              />
+              <button 
+                onClick={handleQuickSave}
+                disabled={isSubmitting}
+                className="mt-3 w-full bg-red-600 text-white py-3 rounded-xl font-black text-xs hover:bg-red-700 transition-all shadow-md active:scale-[0.98] disabled:opacity-50"
+              >
+                {isSubmitting ? 'מעדכן...' : 'שמור בירווז'}
+              </button>
+            </div>
+          </div>
+          )}
+
+
+          <div className="flex-1 flex flex-col border-r border-slate-100 pr-6">
             <div className="mt-auto pt-4">
-              {/* Changed blue-50 to red-50 */}
               <Link 
                 to={`/course/${item.course_id}/class/${item.id}`}
-                className="group flex items-center justify-between w-full p-3 rounded-xl text-red-600 hover:bg-red-600 hover:text-white transition-all"
+                className="group flex items-center justify-between w-full p-3 rounded-xl text-red-600 hover:bg-red-600 hover:text-white transition-all border border-red-50"
               >
                 <span className="text-[10px] font-black uppercase">לניהול מלא</span>
                 <span className="text-sm transition-transform group-hover:-translate-x-1">←</span>
               </Link>
             </div>
           </div>
+
         </div>
       </div>
     </div>

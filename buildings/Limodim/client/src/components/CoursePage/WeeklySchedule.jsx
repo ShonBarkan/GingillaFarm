@@ -79,7 +79,6 @@ const WeeklySchedule = ({ course }) => {
               }`}
             >
               {isCurrentEditing ? (
-                /* --- מצב עריכה פרטני --- */
                 <div className="space-y-4">
                   <div className="flex justify-between items-center border-b border-slate-100 pb-2 mb-2">
                     <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">עריכת מועד</span>
@@ -112,6 +111,7 @@ const WeeklySchedule = ({ course }) => {
                       >
                         <option value="הרצאה">הרצאה</option>
                         <option value="תרגול">תרגול</option>
+                        <option value="תגבור">תגבור</option>
                       </select>
                     </div>
 
@@ -151,7 +151,6 @@ const WeeklySchedule = ({ course }) => {
                   </div>
                 </div>
               ) : (
-                /* --- מצב תצוגה --- */
                 <div className="flex justify-between items-start">
                   <div className="flex flex-col">
                     <div className="flex items-center gap-2 mb-1">

@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 const ClassHistoryCard = ({ cls, isEditing, setEditingCardId, courseId, handleUpdate, handleDelete }) => {
-  // Local state to handle input changes without immediate API calls
   const [localData, setLocalData] = useState(cls);
   
-  const summaryArray = Array.isArray(localData.summary) 
-    ? localData.summary 
-    : [];
+  // Helper logic to check contents
+  const summaryArray = Array.isArray(localData.summary) ? localData.summary : [];
   const hasSummary = summaryArray.length > 0;
+  
+  // Check for Body (AI Summary) and AI Quiz
+  const hasAiSummary = localData.ai_summary && String(localData.ai_summary).length > 10;
+  const hasAiQuiz = localData.ai_quiz && (typeof localData.ai_quiz === 'object' ? localData.ai_quiz?.questions?.length > 0 : false);
 
   useEffect(() => {
     setLocalData(cls);
@@ -89,7 +91,6 @@ const ClassHistoryCard = ({ cls, isEditing, setEditingCardId, courseId, handleUp
             </div>
           </div>
 
-          {/* New Field: Topic/Name in Edit Mode */}
           <div className="flex flex-col gap-1">
             <label className="text-[9px] font-bold text-slate-400 uppercase">נושא השיעור</label>
             <input 
@@ -118,29 +119,41 @@ const ClassHistoryCard = ({ cls, isEditing, setEditingCardId, courseId, handleUp
           <div className="flex flex-col gap-2 min-w-0">
             <div className="flex items-center gap-3 flex-wrap">
               {cls.name && (
-                <span className="font-bold text-slate-700 text-sm md:text-base border-r-2 border-slate-200 pr-3 truncate">
+                <span className="font-black text-slate-800 text-sm md:text-base border-r-2 border-slate-200 pr-3 truncate">
                   {cls.name}
                 </span>
               )}
 
-              <span className="text-[9px] md:text-[10px] bg-emerald-100 text-emerald-700 px-2.5 py-0.5 rounded-full font-black uppercase tracking-tight border border-emerald-200">
+              <span className="text-[9px] md:text-[10px] bg-emerald-100 text-emerald-700 px-2.5 py-0.5 rounded-md font-black uppercase tracking-tight border border-emerald-200">
                 {cls.class_type}
               </span>
             </div>
 
-            <div className="flex items-center gap-1.5">
-                {hasSummary ? (
-                    <span className="text-[8px] md:text-[9px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded font-black uppercase tracking-tighter">
-                    סיכומים זמינים ({summaryArray.length}) 📄
-                    </span>
-                ) : (
-                    <span className="text-[8px] md:text-[9px] bg-slate-200 text-slate-500 px-2 py-0.5 rounded font-black uppercase tracking-tighter">
-                    אין סיכום
-                    </span>
-                )}
+            {/* Status Badges Row */}
+            <div className="flex items-center gap-2 flex-wrap">
+                {/* PDF Badge */}
+                <span className={`text-[8px] md:text-[9px] px-2 py-0.5 rounded font-black uppercase tracking-tighter border ${
+                  hasSummary ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-slate-100 text-slate-400 border-slate-200 opacity-60'
+                }`}>
+                  סיכום PDF {hasSummary ? '✓' : '✗'}
+                </span>
+
+                {/* AI Summary Badge (Body) */}
+                <span className={`text-[8px] md:text-[9px] px-2 py-0.5 rounded font-black uppercase tracking-tighter border ${
+                  hasAiSummary ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-slate-100 text-slate-400 border-slate-200 opacity-60'
+                }`}>
+                  סיכום AI ✨ {hasAiSummary ? '✓' : '✗'}
+                </span>
+
+                {/* AI Quiz Badge */}
+                <span className={`text-[8px] md:text-[9px] px-2 py-0.5 rounded font-black uppercase tracking-tighter border ${
+                  hasAiQuiz ? 'bg-purple-50 text-purple-600 border-purple-100' : 'bg-slate-100 text-slate-400 border-slate-200 opacity-60'
+                }`}>
+                  בוחן 🎯 {hasAiQuiz ? '✓' : '✗'}
+                </span>
             </div>
             
-            <p className="text-slate-700 text-[13px] md:text-sm italic leading-relaxed pr-3 border-r-2 border-emerald-200 mt-1">
+            <p className="text-slate-600 text-[13px] md:text-sm italic leading-relaxed pr-3 border-r-2 border-emerald-300/50 mt-1 line-clamp-2">
               "{cls.birvouz}"
             </p>
           </div>
@@ -156,7 +169,6 @@ const ClassHistoryCard = ({ cls, isEditing, setEditingCardId, courseId, handleUp
               </Link>
             </div>
             
-            {/* Pencil Icon to toggle editing */}
             <button 
               onClick={() => setEditingCardId(cls.id)}
               className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-full transition-all active:scale-90"

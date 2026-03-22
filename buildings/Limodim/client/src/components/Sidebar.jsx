@@ -23,35 +23,39 @@ const Sidebar = () => {
   };
 
   return (
-    <aside className={`bg-slate-900 text-white flex flex-col transition-all duration-300 z-[100] shadow-xl border-l border-slate-800
-      ${isOpen ? 'h-screen' : 'h-16 md:h-screen'} 
-      ${isCollapsed ? 'md:w-20' : 'md:w-64'} w-full`}>
+    <aside 
+      className={`bg-slate-900 text-white flex flex-col transition-all duration-300 z-[100] shadow-xl overflow-hidden
+        ${isOpen ? 'h-screen fixed inset-0 w-full' : 'h-16 md:h-screen sticky top-0 md:relative'} 
+        ${isCollapsed ? 'md:w-20' : 'md:w-64'} w-full border-slate-800 
+        ${!isOpen ? 'border-b md:border-b-0 md:border-l' : ''}`}
+    >
       
-      {/* --- Header Area --- */}
-      <div className="p-4 md:p-6 border-b border-slate-800 flex items-center justify-between shrink-0 overflow-hidden">
-        {(!isCollapsed || isOpen) && (
-          <Link to="/" className="text-xl font-bold tracking-wider text-orange-400 whitespace-nowrap">
-            לימודים
-          </Link>
-        )}
+      {/* --- Header Area (Top Bar on Mobile) --- */}
+      <div className="h-16 flex items-center justify-between px-4 md:px-6 border-b border-slate-800 shrink-0 overflow-hidden flex-row-reverse">
         
-        {/* Toggle Button (Desktop: Collapse, Mobile: Hamburger) */}
+        {/* Toggle Button - Now on the Right */}
         <button 
           onClick={() => {
             if (window.innerWidth < 768) setIsOpen(!isOpen);
             else setIsCollapsed(!isCollapsed);
           }}
-          className="p-2 hover:bg-slate-800 rounded-lg transition-colors text-slate-400 hover:text-white"
+          className="p-2 hover:bg-slate-800 rounded-lg transition-colors text-slate-400 hover:text-white z-[110]"
         >
-          {isOpen || (isCollapsed && !isOpen) ? '☰' : '◀'}
+          {isOpen ? '✕' : '☰'}
         </button>
+
+        {/* Logo - On the Left side (in RTL context) */}
+        {(!isCollapsed || isOpen) && (
+          <Link to="/" className="text-xl font-black tracking-wider text-orange-400 whitespace-nowrap">
+            לימודים
+          </Link>
+        )}
       </div>
 
       {/* --- Navigation Area --- */}
       <nav className={`flex-1 flex flex-col overflow-y-auto p-3 no-scrollbar transition-opacity duration-300
-        ${isOpen ? 'opacity-100' : 'opacity-0 md:opacity-100 pointer-events-none md:pointer-events-auto'}`}>
+        ${isOpen || window.innerWidth >= 768 ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
         
-        {/* Dashboard Link */}
         <NavLink 
           to="/" 
           onClick={() => setIsOpen(false)}
@@ -61,11 +65,9 @@ const Sidebar = () => {
           {(!isCollapsed || isOpen) && <span className="font-bold whitespace-nowrap">לוח בקרה</span>}
         </NavLink>
 
-        {/* Semesters & Courses */}
         <div className="space-y-4">
           {Object.keys(groupedCourses).sort().map(s => (
             <div key={s} className="space-y-1">
-              {/* Semester Header */}
               <button 
                 onClick={() => toggleSemester(s)}
                 className={`w-full flex items-center justify-between p-2 hover:bg-slate-800/50 rounded-lg text-slate-300 transition-all
@@ -80,7 +82,6 @@ const Sidebar = () => {
                 )}
               </button>
 
-              {/* Course Items */}
               <div className={`overflow-hidden transition-all duration-300 ${openSemesters[s] && (!isCollapsed || isOpen) ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
                 <div className="pr-9 py-1 flex flex-col gap-1">
                   {groupedCourses[s].map(course => (
@@ -101,7 +102,10 @@ const Sidebar = () => {
       </nav>
 
       {/* --- Footer (Add Course) --- */}
-      <div className={`p-4 border-t border-slate-800 transition-all ${isCollapsed && !isOpen ? 'items-center' : ''}`}>
+      {/* Hidden when mobile menu is closed */}
+      <div className={`p-4 border-t border-slate-800 transition-all 
+        ${isOpen || window.innerWidth >= 768 ? 'block' : 'hidden'}
+        ${isCollapsed && !isOpen ? 'flex justify-center' : ''}`}>
         <Link 
           to="/settings" 
           onClick={() => setIsOpen(false)}

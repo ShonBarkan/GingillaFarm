@@ -8,17 +8,15 @@ import ClassHistoryCard from './ClassHistory/ClassHistoryCard';
 const ClassHistory = ({ classes, courseId }) => {
   const { loadFullCourse } = useCourses();
   
-  // States
   const [isAdding, setIsAdding] = useState(false);
   const [editingCardId, setEditingCardId] = useState(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [selectedTypes, setSelectedTypes] = useState([]); 
   const [sortOrder, setSortOrder] = useState('Newest');
   
-  // Updated newClass to include 'name'
   const [newClass, setNewClass] = useState({
     number: (classes?.length || 0) + 1,
-    name: '', // <--- New Field
+    name: '',
     date_taken: new Date().toISOString().split('T')[0],
     birvouz: '',
     location_building: '',
@@ -27,7 +25,6 @@ const ClassHistory = ({ classes, courseId }) => {
     class_type: 'הרצאה'
   });
 
-  // Extract unique class types for filtering
   const allAvailableTypes = useMemo(() => {
     const types = classes?.map(cls => cls.class_type).filter(Boolean) || [];
     return [...new Set(types)];
@@ -39,10 +36,29 @@ const ClassHistory = ({ classes, courseId }) => {
     );
   };
 
-  // API Call Handlers
   const handleUpdate = async (classId, updatedData) => {
     try {
-      await api.updateClass(classId, updatedData);
+      // FIX 422: Construct a clean payload with only specific DB fields
+      const payload = {
+        course_id: courseId,
+        name: updatedData.name || '',
+        number: parseInt(updatedData.number) || 1,
+        date_taken: updatedData.date_taken,
+        birvouz: updatedData.birvouz || '',
+        class_type: updatedData.class_type || 'הרצאה',
+        location_building: updatedData.location_building || '',
+        location_room: updatedData.location_room || '',
+        time: updatedData.time || '',
+        summary: Array.isArray(updatedData.summary) 
+          ? JSON.stringify(updatedData.summary) 
+          : updatedData.summary,
+        ai_summary: updatedData.ai_summary || '',
+        ai_quiz: typeof updatedData.ai_quiz === 'object' 
+          ? JSON.stringify(updatedData.ai_quiz) 
+          : updatedData.ai_quiz
+      };
+
+      await api.updateClass(classId, payload);
       await loadFullCourse(courseId);
     } catch (err) {
       console.error("Failed to update class log:", err);
@@ -53,10 +69,9 @@ const ClassHistory = ({ classes, courseId }) => {
     try {
       await api.createClass({ ...newClass, course_id: courseId });
       
-      // Reset state with incremented number and empty name
       setNewClass({
         number: (classes?.length || 0) + 2,
-        name: '', // <--- Reset Field
+        name: '', 
         date_taken: new Date().toISOString().split('T')[0],
         birvouz: '',
         location_building: '',
@@ -73,7 +88,7 @@ const ClassHistory = ({ classes, courseId }) => {
   };
 
   const handleDelete = async (classId) => {
-    if (window.confirm("האם למחוק את תיעוד השיעור הזה מהחווה?")) {
+    if (window.confirm("האם למחוק את תיעוד השיעור הזה?")) {
       try {
         await api.deleteClass(classId);
         await loadFullCourse(courseId);
@@ -83,7 +98,6 @@ const ClassHistory = ({ classes, courseId }) => {
     }
   };
 
-  // Processing list for UI
   const processedClasses = (classes || [])
     .filter(cls => selectedTypes.length === 0 || selectedTypes.includes(cls.class_type))
     .sort((a, b) => {
@@ -94,8 +108,6 @@ const ClassHistory = ({ classes, courseId }) => {
 
   return (
     <section className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-slate-100">
-
-      {/* Header */}
       <div className="flex justify-between items-center mb-6 border-b pb-3">
         <div className="flex items-center gap-3">
           <h3 className="text-lg md:text-xl font-bold text-slate-800">היסטוריית שיעורים</h3>
@@ -120,7 +132,7 @@ const ClassHistory = ({ classes, courseId }) => {
               : 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100'
           }`}
         >
-          {isAdding ? 'ביטול הוספה' : '+ הוסף שיעור חדש'}
+          {isAdding ? 'ביטול' : '+ הוסף שיעור'}
         </button>
       </div>
 
@@ -142,7 +154,6 @@ const ClassHistory = ({ classes, courseId }) => {
         />
       )}
 
-      {/* Render processed class cards */}
       <div className="space-y-6">
         {processedClasses.length > 0 ? processedClasses.map((cls) => (
           <ClassHistoryCard

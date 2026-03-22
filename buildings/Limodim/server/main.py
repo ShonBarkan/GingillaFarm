@@ -85,11 +85,9 @@ class ClassBase(BaseModel):
     location_room: Optional[str] = None
     time: Optional[str] = None
     class_type: Optional[str] = "הרצאה"
-    # New AI Fields
     ai_summary: Optional[List[AISubject]] = []
     ai_quiz: Optional[AIQuiz] = None
 
-    # This ensures that JSON strings from the DB are parsed into objects/lists
     @field_validator('summary', 'ai_summary', 'ai_quiz', mode='before')
     @classmethod
     def ensure_json_parsed(cls, v):
@@ -1085,12 +1083,12 @@ async def get_past_classes():
                         return None
                 return field
 
-            birvouz = c.get("birvouz")
+            birvouz_value = c.get("birvouz")
             summary = parse_field(c.get("summary"))
             ai_summary = parse_field(c.get("ai_summary"))
             ai_quiz = parse_field(c.get("ai_quiz"))
 
-            is_missing_birvouz = not birvouz or str(birvouz).strip() == ""
+            is_missing_birvouz = not birvouz_value or str(birvouz_value).strip() == ""
             is_missing_summary = not summary or len(summary) == 0
             is_missing_ai_summary = not ai_summary or len(ai_summary) == 0
 
@@ -1101,6 +1099,7 @@ async def get_past_classes():
                     len(ai_quiz.get("questions")) == 0
             )
 
+            # Filter classes that are missing at least one component
             if is_missing_birvouz or is_missing_summary or is_missing_ai_summary or is_missing_ai_quiz:
                 incomplete_classes.append({
                     "id": c.get("id"),
@@ -1108,8 +1107,9 @@ async def get_past_classes():
                     "course_name": course_map.get(str(c.get("course_id")), "Unknown Course"),
                     "class_name": c.get("name"),
                     "date": c.get("date_taken"),
+                    "birvouz": birvouz_value, # Returns the actual string value
                     "missing": {
-                        "birvouz": is_missing_birvouz,
+                        "birvouz": is_missing_birvouz, # Still used for the red/green status logic
                         "summary": is_missing_summary,
                         "ai_summary": is_missing_ai_summary,
                         "ai_quiz": is_missing_ai_quiz

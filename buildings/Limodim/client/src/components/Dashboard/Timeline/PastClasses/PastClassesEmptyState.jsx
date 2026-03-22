@@ -8,11 +8,11 @@ const PastClassesEmptyState = () => {
       </div>
       
       <h4 className="text-xl font-black text-slate-800 mb-2">
-        החווה מעודכנת לגמרי!
+        הכל מעודכן!
       </h4>
       
       <p className="text-sm text-slate-500 font-medium max-w-[240px] leading-relaxed">
-        כל השיעורים האחרונים שלך כבר מבורוזים ומסוכמים. זמן מצוין לעשות הפסקה או לחזור על החומר.
+        כל השיעורים האחרונים שלך כבר מבורוזים ומסוכמים. זמן מצוין לעשות הפסקה או לעבור על החומר.
       </p>
 
       <div className="mt-8 flex gap-2">

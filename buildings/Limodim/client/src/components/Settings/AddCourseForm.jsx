@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useCourses } from '../context/CourseContext';
+import { useCourses } from '../../context/CourseContext';
 
 // Define a key for localStorage
 const STORAGE_KEY = 'gingilla_course_draft';

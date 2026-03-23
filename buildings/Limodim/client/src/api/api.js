@@ -23,15 +23,29 @@ export const updateCourse = (courseId, courseData) =>
 export const deleteCourse = (courseId) => api.delete(`/courses/${courseId}`);
 
 // --- Classes ---
-export const getClasses = (courseId = null) => 
-  api.get('/classes', { params: courseId ? { course_id: courseId } : {} });
+export const getClasses = (courseId = null) => api.get('/classes', { params: courseId ? { course_id: courseId } : {} });
 
 export const createClass = (classData) => api.post('/classes', classData);
 
-export const updateClass = (classId, classData) => 
-  api.put(`/classes/${classId}`, classData);
+export const updateClass = (classId, classData) => api.put(`/classes/${classId}`, classData);
 
 export const deleteClass = (classId) => api.delete(`/classes/${classId}`);
+
+// --- AI Summary ---
+export const getAiSummary = (classId) => api.get(`/classes/${classId}/ai-summary`);
+export const upsertSummaryTopic = (topicData) => api.post(`/ai-summary`, topicData);
+export const updateSummaryTopic = (topicId, topicData) => api.put(`/ai-summary/${topicId}`, topicData);
+export const deleteSummaryTopic = (topicId) => api.delete(`/ai-summary/${topicId}`);
+export const updateSummaryStatus = (topicId, status) => api.patch(`/ai-summary/${topicId}/status`, status);
+
+// --- AI Quiz ---
+export const upsertQuiz = (quizData) => api.post(`/ai-quizzes`, quizData);
+export const getAiQuiz = (classId) => api.get(`/classes/${classId}/ai-quiz`);
+export const submitQuizAttempt = (quizId, scoreData) => api.post(`/ai-quizzes/${quizId}/attempt`, scoreData);
+export const saveQuizQuestion = (questionData) => api.post(`/ai-quiz/question`, questionData);
+export const updateQuestionStats = (questionId, isCorrect) => 
+  api.post(`/ai-quiz/question/${questionId}/stats`, { is_correct: isCorrect });
+export const deleteQuizQuestion = (questionId) => api.delete(`/ai-quiz/question/${questionId}`);
 
 // --- Class Files (PDF Management) ---
 
@@ -144,4 +158,15 @@ export default {
   getTimelineReceptionHours,
   getTimelineDueHomework,
   getMissingSummaries,
+  getAiSummary,
+  upsertSummaryTopic,
+  updateSummaryTopic,
+  deleteSummaryTopic,
+  updateSummaryStatus,
+  getAiQuiz,
+  submitQuizAttempt,
+  saveQuizQuestion,
+  upsertQuiz,
+  updateQuestionStats,
+  deleteQuizQuestion,
 };

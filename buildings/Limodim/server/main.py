@@ -10,9 +10,12 @@ from typing import List, Optional, Dict, Any
 from dotenv import load_dotenv
 import shutil
 from fastapi.staticfiles import StaticFiles
-from fastapi import UploadFile, File
+from fastapi import UploadFile, File, Request
 from datetime import datetime, timedelta, date
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+import urllib.parse
 
 app = FastAPI(title="Limodim - Academic Management")
 scheduler = AsyncIOScheduler()
@@ -49,30 +52,56 @@ class ScheduleEntry(BaseModel):
     zoom_link: Optional[str] = None
 
 
-class AISubject(BaseModel):
+class AISummaryVisual(BaseModel):
+    type: str = "none"
+    value: str = ""
+
+
+class AISummaryBase(BaseModel):
+    id: Optional[int] = None
+    class_id: Optional[int] = None
+    parent_id: Optional[int] = None
     title: str
-    description: str  # Supports Markdown & LaTeX (e.g. $ \alpha \cap \beta $)
-    sub_topics: Optional[List['AISubject']] = []  # Hierarchical tree structure
+    content: Optional[str] = None
+    visual: AISummaryVisual = AISummaryVisual()
+    order_index: int = 0
+    summary_type: Optional[str] = None
+    is_reviewed: bool = False
+    mastery_level: int = 0
+    sub_topics: List['AISummaryBase'] = []
 
 
-class AIQuizQuestion(BaseModel):
-    question: str
-    question_type: str = "multiple_choice"  # e.g., "multiple_choice", "boolean", "open"
+class AIQuizDistractor(BaseModel):
+    answer_text: str
+    explanation: Optional[str] = None
+
+
+class AIQuizQuestionBase(BaseModel):
+    id: Optional[int] = None
+    quiz_id: int
+    question_text: str
     correct_answer: str
-    distractors: List[str]  # Wrong answers
-    explanation: Optional[str] = None  # Why this is the right answer
-    mapped_topic: Optional[str] = None  # Links to an AISubject title
+    explanation: Optional[str] = None
+    distractors: List[AIQuizDistractor] = []
+    correct_count: int = 0
+    wrong_count: int = 0
 
 
 class AIQuizAttempt(BaseModel):
-    attempt_date: str  # ISO format date
+    attempt_date: str  # ISO format
     score: float
-    total_questions: int
 
 
-class AIQuiz(BaseModel):
-    questions: List[AIQuizQuestion] = []
-    history: List[AIQuizAttempt] = []  # Track results over time
+class AIQuizBase(BaseModel):
+    id: Optional[int] = None
+    class_id: int
+    attempts: List[AIQuizAttempt] = []
+    created_at: Optional[datetime] = None
+    questions: List[AIQuizQuestionBase] = []
+
+
+# Rebuild recursive model
+AISummaryBase.model_rebuild()
 
 
 class ClassBase(BaseModel):
@@ -85,21 +114,6 @@ class ClassBase(BaseModel):
     location_room: Optional[str] = None
     time: Optional[str] = None
     class_type: Optional[str] = "הרצאה"
-    ai_summary: Optional[List[AISubject]] = []
-    ai_quiz: Optional[AIQuiz] = None
-
-    @field_validator('summary', 'ai_summary', 'ai_quiz', mode='before')
-    @classmethod
-    def ensure_json_parsed(cls, v):
-        if isinstance(v, str) and v.strip():
-            try:
-                return json.loads(v)
-            except:
-                return v
-        return v or ([] if cls is not AIQuiz else {"questions": [], "history": []})
-
-
-AISubject.model_rebuild()
 
 
 class ClassFileBase(BaseModel):
@@ -201,12 +215,38 @@ def init_db_tables():
             "number": "INTEGER",
             "birvouz": "TEXT",
             "summary": "JSONB DEFAULT '[]'::jsonb",
-            "ai_summary": "JSONB DEFAULT '[]'::jsonb",
-            "ai_quiz": "JSONB DEFAULT '{\"questions\": [], \"history\": []}'::jsonb",
             "location_building": "TEXT",
             "location_room": "TEXT",
             "time": "TEXT",
             "class_type": "TEXT"
+        },
+        "ai_summaries": {
+            "id": "SERIAL PRIMARY KEY",
+            "class_id": "INTEGER REFERENCES classes(id) ON DELETE CASCADE",
+            "parent_id": "INTEGER REFERENCES ai_summaries(id) ON DELETE CASCADE",
+            "title": "TEXT NOT NULL",
+            "content": "TEXT",
+            "visual": "JSONB DEFAULT '{\"type\": \"none\", \"value\": \"\"}'::jsonb",
+            "order_index": "INTEGER DEFAULT 0",
+            "summary_type": "TEXT",
+            "is_reviewed": "BOOLEAN DEFAULT FALSE",
+            "mastery_level": "INTEGER DEFAULT 0"
+        },
+        "ai_quizzes": {
+            "id": "SERIAL PRIMARY KEY",
+            "class_id": "INTEGER REFERENCES classes(id) ON DELETE CASCADE UNIQUE",
+            "attempts": "JSONB DEFAULT '[]'::jsonb",
+            "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+        },
+        "ai_quiz_questions": {
+            "id": "SERIAL PRIMARY KEY",
+            "quiz_id": "INTEGER REFERENCES ai_quizzes(id) ON DELETE CASCADE",
+            "question_text": "TEXT NOT NULL",
+            "correct_answer": "TEXT NOT NULL",
+            "explanation": "TEXT",
+            "distractors": "JSONB DEFAULT '[]'::jsonb",
+            "correct_count": "INTEGER DEFAULT 0",
+            "wrong_count": "INTEGER DEFAULT 0"
         },
         "homeworks": {
             "id": "SERIAL PRIMARY KEY",
@@ -244,8 +284,8 @@ def init_db_tables():
         "class_files": {
             "id": "SERIAL PRIMARY KEY",
             "class_id": "INTEGER REFERENCES classes(id)",
-            "file_name": "TEXT NOT NULL",  # Unique name stored on disk
-            "original_name": "TEXT NOT NULL",  # Original name for display
+            "file_name": "TEXT NOT NULL",
+            "original_name": "TEXT NOT NULL",
             "upload_date": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
         }
     }
@@ -561,29 +601,15 @@ async def get_classes(course_id: Optional[int] = None):
 
 @app.put("/classes/{class_id}")
 async def update_class(class_id: int, class_data: ClassBase):
-    """Update an existing class entry including AI summary and quiz data."""
-
-    # Convert Pydantic model to a dictionary
-    # Nested models (AISubject, AIQuiz) will be converted to nested dicts/lists
     data = class_data.dict()
 
-    # 1. Handle date conversion if date_taken exists
-    if data.get("date_taken"):
-        # Ensure it's stored as a string if it came as a date object
-        if isinstance(data["date_taken"], (date, datetime)):
-            data["date_taken"] = data["date_taken"].isoformat()
+    if data.get("date_taken") and isinstance(data["date_taken"], (date, datetime)):
+        data["date_taken"] = data["date_taken"].isoformat()
 
-    # 2. CRITICAL: Convert all JSONB fields to JSON strings for DB storage
-    # This ensures the DB Manager receives a valid JSON string for Postgres JSONB columns
-    json_fields = ["summary", "ai_summary", "ai_quiz"]
+    # Only stringify 'summary' (the PDF paths list)
+    if "summary" in data and isinstance(data["summary"], list):
+        data["summary"] = json.dumps(data["summary"])
 
-    for field in json_fields:
-        if field in data and data[field] is not None:
-            # We only stringify if it's currently a list or a dict
-            if isinstance(data[field], (list, dict)):
-                data[field] = json.dumps(data[field])
-
-    # 3. Prepare the payload for the DB Manager
     payload = {
         "action": "update",
         "table": "classes",
@@ -591,28 +617,11 @@ async def update_class(class_id: int, class_data: ClassBase):
         "filters": {"id": class_id}
     }
 
-    try:
-        response = requests.post(f"{DB_MANAGER_URL}/query", json=payload)
+    response = requests.post(f"{DB_MANAGER_URL}/query", json=payload)
+    if response.status_code == 200:
+        return response.json()
 
-        if response.status_code == 200:
-            return response.json()
-
-        # If DB Manager returned an error (e.g., 400, 500)
-        raise HTTPException(
-            status_code=response.status_code,
-            detail=f"DB Manager Error: {response.text}"
-        )
-
-    except requests.exceptions.ConnectionError:
-        raise HTTPException(
-            status_code=503,
-            detail="CRITICAL: Could not connect to DB Manager"
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Internal Server Error: {str(e)}"
-        )
+    raise HTTPException(status_code=response.status_code, detail=response.text)
 
 
 @app.delete("/classes/{class_id}")
@@ -964,13 +973,41 @@ async def get_full_course_data(course_id: int):
         except Exception:
             return []
 
+    # 1. Fetch Basic Course Info
     course_list = fetch_from_db("courses", {"id": course_id})
     if not course_list:
         raise HTTPException(status_code=404, detail="Course not found")
 
+    # 2. Fetch all classes for this course
+    all_classes = fetch_from_db("classes", {"course_id": course_id})
+    class_ids = [c["id"] for c in all_classes]
+
+    # 3. Bulk Fetch AI Status (to know what exists)
+    # Fetching only IDs to check existence for the UI badges
+    all_summaries = fetch_from_db("ai_summaries", {"class_id": ["IN", class_ids]})
+    all_quizzes = fetch_from_db("ai_quizzes", {"class_id": ["IN", class_ids]})
+
+    # Create lookup sets for quick access
+    summary_map = {s["class_id"] for s in all_summaries if s.get("class_id")}
+    quiz_map = {q["class_id"] for q in all_quizzes if q.get("class_id")}
+
+    # 4. Attach status to each class
+    for cls in all_classes:
+        # We add these virtual fields so the Frontend remains compatible
+        cls["has_ai_summary"] = cls["id"] in summary_map
+        cls["has_ai_quiz"] = cls["id"] in quiz_map
+
+        # Ensure summary (PDFs) is a list
+        if isinstance(cls.get("summary"), str):
+            try:
+                cls["summary"] = json.loads(cls["summary"])
+            except:
+                cls["summary"] = []
+
+    # 5. Build the final response
     full_data = {
         "course": course_list[0],
-        "classes": fetch_from_db("classes", {"course_id": course_id}),
+        "classes": all_classes,
         "homeworks": fetch_from_db("homeworks", {"course_id": course_id}),
         "reception_hours": fetch_from_db("reception_hours", {"course_id": course_id}),
         "exams": fetch_from_db("exams", {"course_id": course_id}),
@@ -1057,59 +1094,78 @@ async def get_future_classes():
 @app.get("/timeline/past-classes")
 async def get_past_classes():
     try:
+        # 1. Fetch all necessary data from DB Manager
         payload_courses = {"action": "find", "table": "courses", "filters": {}}
-        payload_performed = {"action": "find", "table": "classes", "filters": {}}
+        payload_classes = {"action": "find", "table": "classes", "filters": {}}
+
+        # New: Fetch existing AI summaries and quizzes to check for existence
+        payload_summaries = {"action": "find", "table": "ai_summaries", "filters": {}}
+        payload_quizzes = {"action": "find", "table": "ai_quizzes", "filters": {}}
+        # We also want to know which quizzes actually have questions
+        payload_questions = {"action": "find", "table": "ai_quiz_questions", "filters": {}}
 
         courses_res = requests.post(f"{DB_MANAGER_URL}/query", json=payload_courses)
-        performed_res = requests.post(f"{DB_MANAGER_URL}/query", json=payload_performed)
+        classes_res = requests.post(f"{DB_MANAGER_URL}/query", json=payload_classes)
+        summaries_res = requests.post(f"{DB_MANAGER_URL}/query", json=payload_summaries)
+        quizzes_res = requests.post(f"{DB_MANAGER_URL}/query", json=payload_quizzes)
+        questions_res = requests.post(f"{DB_MANAGER_URL}/query", json=payload_questions)
 
-        if courses_res.status_code != 200 or performed_res.status_code != 200:
+        if any(res.status_code != 200 for res in [courses_res, classes_res, summaries_res, quizzes_res, questions_res]):
             return []
 
-        courses_list = courses_res.json().get("data", [])
-        all_performed = performed_res.json().get("data", [])
+        # 2. Create Lookup Sets for fast existence checking
+        # Set of class_ids that have at least one AI summary topic
+        classes_with_ai_summary = {s.get("class_id") for s in summaries_res.json().get("data", []) if s.get("class_id")}
 
+        # Map quiz_id to class_id
+        quiz_to_class = {q.get("id"): q.get("class_id") for q in quizzes_res.json().get("data", [])}
+
+        # Set of class_ids that have a quiz WITH at least one question
+        classes_with_ai_quiz = set()
+        for quest in questions_res.json().get("data", []):
+            q_id = quest.get("quiz_id")
+            if q_id in quiz_to_class:
+                classes_with_ai_quiz.add(quiz_to_class[q_id])
+
+        courses_list = courses_res.json().get("data", [])
+        all_performed = classes_res.json().get("data", [])
         course_map = {str(c["id"]): c["name"] for c in courses_list}
 
         incomplete_classes = []
 
         for c in all_performed:
-            def parse_field(field):
-                if not field: return None
-                if isinstance(field, str):
-                    try:
-                        return json.loads(field)
-                    except:
-                        return None
-                return field
+            class_id = c.get("id")
 
+            # 3. Check PDF summaries (still in classes table)
+            raw_summary = c.get("summary")
+            summary_list = []
+            if isinstance(raw_summary, list):
+                summary_list = raw_summary
+            elif isinstance(raw_summary, str) and raw_summary.strip():
+                try:
+                    summary_list = json.loads(raw_summary)
+                except:
+                    summary_list = []
+
+            # 4. Logical Checks
             birvouz_value = c.get("birvouz")
-            summary = parse_field(c.get("summary"))
-            ai_summary = parse_field(c.get("ai_summary"))
-            ai_quiz = parse_field(c.get("ai_quiz"))
-
             is_missing_birvouz = not birvouz_value or str(birvouz_value).strip() == ""
-            is_missing_summary = not summary or len(summary) == 0
-            is_missing_ai_summary = not ai_summary or len(ai_summary) == 0
+            is_missing_summary = not summary_list or len(summary_list) == 0
 
-            is_missing_ai_quiz = (
-                    not ai_quiz or
-                    not isinstance(ai_quiz, dict) or
-                    not ai_quiz.get("questions") or
-                    len(ai_quiz.get("questions")) == 0
-            )
+            # New Existence Logic
+            is_missing_ai_summary = class_id not in classes_with_ai_summary
+            is_missing_ai_quiz = class_id not in classes_with_ai_quiz
 
-            # Filter classes that are missing at least one component
             if is_missing_birvouz or is_missing_summary or is_missing_ai_summary or is_missing_ai_quiz:
                 incomplete_classes.append({
-                    "id": c.get("id"),
+                    "id": class_id,
                     "course_id": c.get("course_id"),
                     "course_name": course_map.get(str(c.get("course_id")), "Unknown Course"),
                     "class_name": c.get("name"),
                     "date": c.get("date_taken"),
-                    "birvouz": birvouz_value, # Returns the actual string value
+                    "birvouz": birvouz_value,
                     "missing": {
-                        "birvouz": is_missing_birvouz, # Still used for the red/green status logic
+                        "birvouz": is_missing_birvouz,
                         "summary": is_missing_summary,
                         "ai_summary": is_missing_ai_summary,
                         "ai_quiz": is_missing_ai_quiz
@@ -1117,7 +1173,6 @@ async def get_past_classes():
                 })
 
         incomplete_classes.sort(key=lambda x: x["date"] if x["date"] else "0000-00-00", reverse=True)
-
         return incomplete_classes
 
     except Exception as e:
@@ -1468,6 +1523,566 @@ async def get_missing_summaries():
         return missing
 
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- ai-summary Endpoints ---
+def build_summary_tree(flat_list: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    # 1. Create a map for all items by their ID
+    nodes = {item['id']: {**item, "sub_topics": []} for item in flat_list}
+    tree = []
+
+    # 2. Sort the items by order_index first to ensure sequence
+    sorted_items = sorted(flat_list, key=lambda x: x.get('order_index', 0))
+
+    for item in sorted_items:
+        node = nodes[item['id']]
+        parent_id = item.get('parent_id')
+
+        if parent_id is None:
+            # Root level topic
+            tree.append(node)
+        else:
+            # Sub-topic: add to parent's sub_topics if parent exists
+            if parent_id in nodes:
+                nodes[parent_id]['sub_topics'].append(node)
+            else:
+                # Fallback: if parent is missing for some reason, treat as root
+                tree.append(node)
+
+    return tree
+
+
+@app.get("/classes/{class_id}/ai-summary", response_model=List[AISummaryBase])
+async def get_class_ai_summary(class_id: int):
+    payload = {
+        "action": "find",
+        "table": "ai_summaries",
+        "filters": {"class_id": class_id}
+    }
+
+    try:
+        response = requests.post(f"{DB_MANAGER_URL}/query", json=payload)
+        if response.status_code != 200:
+            return []
+
+        flat_data = response.json().get("data", [])
+
+        # Parse visual JSON strings back to dicts if they come as strings
+        for item in flat_data:
+            if isinstance(item.get("visual"), str):
+                try:
+                    item["visual"] = json.loads(item["visual"])
+                except:
+                    item["visual"] = {"type": "none", "value": ""}
+
+        return build_summary_tree(flat_data)
+
+    except Exception as e:
+        print(f"Error fetching AI summary: {e}")
+        return []
+
+
+# --- Update in main.py ---
+
+def save_topic_recursive(topic_data, class_id, parent_id=None):
+    """
+    Recursively saves a topic and its children to the database.
+    """
+    # 1. Pull out sub_topics so they don't go into the ai_summaries table columns
+    sub_topics = topic_data.pop("sub_topics", [])
+
+    # 2. Prepare the data for saving
+    clean_data = {
+        "class_id": int(class_id),
+        "parent_id": parent_id,
+        "title": topic_data.get("title", "Untitled"),
+        "content": topic_data.get("content", ""),
+        "summary_type": topic_data.get("summary_type", "definition"),
+        "order_index": topic_data.get("order_index", 0),
+        "visual": topic_data.get("visual", {"type": "none", "value": ""}),
+        "is_reviewed": topic_data.get("is_reviewed", False),
+        "mastery_level": topic_data.get("mastery_level", 0)
+    }
+
+    # Handle JSONB fields for the DB Manager
+    if isinstance(clean_data["visual"], (dict, list)):
+        clean_data["visual"] = json.dumps(clean_data["visual"])
+
+    # 3. Determine if we are updating or inserting
+    topic_id = topic_data.get("id")
+    action = "update" if topic_id else "insert"
+    filters = {"id": topic_id} if topic_id else {}
+
+    payload = {
+        "action": action,
+        "table": "ai_summaries",
+        "data": clean_data,
+        "filters": filters
+    }
+
+    # 4. Execute the DB operation
+    res = requests.post(f"{DB_MANAGER_URL}/query", json=payload)
+
+    if res.status_code == 200:
+        res_data = res.json()
+
+        # 5. CRITICAL: Get the ID of the topic we just saved
+        # If it was an insert, we need the new ID to be the parent of the sub_topics
+        new_topic_id = topic_id
+        if action == "insert":
+            # Some DB Managers return 'inserted_id', others might need a 'find'
+            new_topic_id = res_data.get("inserted_id")
+
+            # Fallback: if ID is missing in response, find it by title and class_id
+            if not new_topic_id:
+                lookup = requests.post(f"{DB_MANAGER_URL}/query", json={
+                    "action": "find",
+                    "table": "ai_summaries",
+                    "filters": {"class_id": class_id, "title": clean_data["title"]}
+                }).json()
+                if lookup.get("data"):
+                    new_topic_id = lookup["data"][-1]["id"]
+
+        # 6. Recursively save all children with the new parent_id
+        if new_topic_id:
+            for sub in sub_topics:
+                save_topic_recursive(sub, class_id, new_topic_id)
+
+    return res
+
+
+@app.post("/ai-summary", status_code=201)
+async def upsert_summary_topic(topic: AISummaryBase):
+    topic_dict = topic.dict()
+    class_id = topic_dict.get("class_id")
+
+    if not class_id:
+        raise HTTPException(status_code=400, detail="Missing class_id")
+
+    response = save_topic_recursive(topic_dict, class_id, topic_dict.get("parent_id"))
+
+    if response.status_code != 200:
+        raise HTTPException(status_code=500, detail=f"DB Error: {response.text}")
+
+    return {"status": "success", "detail": response.json()}
+
+
+@app.patch("/ai-summary/{topic_id}/status")
+async def update_summary_status(topic_id: int, status: Dict[str, Any]):
+    """Quick update for is_reviewed or mastery_level."""
+    payload = {
+        "action": "update",
+        "table": "ai_summaries",
+        "data": status,  # e.g., {"is_reviewed": True}
+        "filters": {"id": topic_id}
+    }
+    res = requests.post(f"{DB_MANAGER_URL}/query", json=payload)
+    return res.json()
+
+
+@app.put("/ai-summary/{topic_id}")
+async def update_summary_topic(topic_id: int, topic_data: AISummaryBase):
+    """
+    Updates an existing summary topic.
+    Handles JSONB serialization for the 'visual' field.
+    """
+    data = topic_data.dict(exclude={"id", "sub_topics"}, exclude_unset=True)
+
+    if "visual" in data and data["visual"] is not None:
+        data["visual"] = json.dumps(data["visual"])
+
+    payload = {
+        "action": "update",
+        "table": "ai_summaries",
+        "data": data,
+        "filters": {"id": topic_id}
+    }
+
+    try:
+        response = requests.post(f"{DB_MANAGER_URL}/query", json=payload)
+        if response.status_code == 200:
+            return response.json()
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/ai-summary/{topic_id}")
+async def delete_summary_topic(topic_id: int):
+    """
+    Deletes a summary topic.
+    Recursive deletion of sub-topics is handled by DB CASCADE.
+    """
+    payload = {
+        "action": "delete",
+        "table": "ai_summaries",
+        "filters": {"id": topic_id}
+    }
+
+    try:
+        response = requests.post(f"{DB_MANAGER_URL}/query", json=payload)
+        if response.status_code == 200:
+            return {"status": "success", "message": f"Topic {topic_id} and its sub-topics deleted."}
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- ai-quiz Endpoints ---
+@app.get("/classes/{class_id}/ai-quiz")
+async def get_class_quiz(class_id: int):
+    """
+    Fetches the quiz header and all its associated questions.
+    """
+    # 1. Fetch Quiz Header
+    quiz_res = requests.post(f"{DB_MANAGER_URL}/query", json={
+        "action": "find",
+        "table": "ai_quizzes",
+        "filters": {"class_id": class_id}
+    })
+
+    quizzes = quiz_res.json().get("data", [])
+    if not quizzes:
+        return None
+
+    quiz = quizzes[0]
+
+    # Parse attempts from JSONB string if necessary
+    if isinstance(quiz.get("attempts"), str):
+        quiz["attempts"] = json.loads(quiz["attempts"])
+
+    # 2. Fetch Questions for this quiz
+    questions_res = requests.post(f"{DB_MANAGER_URL}/query", json={
+        "action": "find",
+        "table": "ai_quiz_questions",
+        "filters": {"quiz_id": quiz["id"]}
+    })
+
+    questions = questions_res.json().get("data", [])
+
+    # Parse distractors for each question
+    for q in questions:
+        if isinstance(q.get("distractors"), str):
+            q["distractors"] = json.loads(q["distractors"])
+
+    quiz["questions"] = questions
+    return quiz
+
+
+@app.post("/ai-quizzes", status_code=201)
+async def create_quiz(quiz_data: AIQuizBase):
+    """Creates the quiz header for a class."""
+    payload = {
+        "action": "insert",
+        "table": "ai_quizzes",
+        "data": {
+            "class_id": quiz_data.class_id,
+            "attempts": json.dumps([])
+        }
+    }
+    return requests.post(f"{DB_MANAGER_URL}/query", json=payload).json()
+
+
+@app.post("/ai-quiz/question")
+async def save_quiz_question(data: dict):
+    try:
+        quiz_id = data.get("quiz_id")
+
+        if quiz_id is None:
+            raise HTTPException(status_code=400, detail="Missing quiz_id in request")
+
+        distractors = data.get("distractors", [])
+
+        # שינוי כאן: הסרנו את class_id כי הוא לא קיים בטבלת השאלות ב-DB
+        clean_data = {
+            "quiz_id": int(quiz_id),
+            "question_text": data.get("question_text"),
+            "correct_answer": data.get("correct_answer"),
+            "explanation": data.get("explanation"),
+            "distractors": json.dumps(distractors)
+        }
+
+        question_id = data.get("id")
+        action = "update" if question_id else "insert"
+        filters = {"id": question_id} if question_id else {}
+
+        payload = {
+            "action": action,
+            "table": "ai_quiz_questions",
+            "data": clean_data,
+            "filters": filters
+        }
+
+        res = requests.post(f"{DB_MANAGER_URL}/query", json=payload)
+        return res.json()
+    except Exception as e:
+        print(f"Error in save_quiz_question: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/ai-quizzes/{quiz_id}/attempt")
+async def submit_quiz_attempt(quiz_id: int, attempt: AIQuizAttempt):
+    """
+    Appends a new score attempt to the quiz history (JSONB).
+    """
+    # 1. Get current quiz to read existing attempts
+    quiz_res = requests.post(f"{DB_MANAGER_URL}/query", json={
+        "action": "find",
+        "table": "ai_quizzes",
+        "filters": {"id": quiz_id}
+    }).json()
+
+    if not quiz_res.get("data"):
+        raise HTTPException(status_code=404, detail="Quiz not found")
+
+    quiz = quiz_res["data"][0]
+
+    # 2. Parse existing attempts
+    attempts = quiz.get("attempts", [])
+    if isinstance(attempts, str):
+        attempts = json.loads(attempts)
+
+    # 3. Append new attempt
+    attempts.append(attempt.dict())
+
+    # 4. Update DB
+    update_payload = {
+        "action": "update",
+        "table": "ai_quizzes",
+        "data": {"attempts": json.dumps(attempts)},
+        "filters": {"id": quiz_id}
+    }
+
+    return requests.post(f"{DB_MANAGER_URL}/query", json=update_payload).json()
+
+
+@app.post("/ai-quizzes/{quiz_id}/attempt")
+async def submit_quiz_attempt(quiz_id: int, attempt: AIQuizAttempt):
+    """
+    Appends a new score attempt to the quiz history (JSONB).
+    """
+    # 1. Get current quiz to read existing attempts
+    quiz_res = requests.post(f"{DB_MANAGER_URL}/query", json={
+        "action": "find",
+        "table": "ai_quizzes",
+        "filters": {"id": quiz_id}
+    }).json()
+
+    if not quiz_res.get("data"):
+        raise HTTPException(status_code=404, detail="Quiz not found")
+
+    quiz = quiz_res["data"][0]
+
+    # 2. Parse existing attempts
+    attempts = quiz.get("attempts", [])
+    if isinstance(attempts, str):
+        attempts = json.loads(attempts)
+
+    # 3. Append new attempt
+    attempts.append(attempt.dict())
+
+    # 4. Update DB
+    update_payload = {
+        "action": "update",
+        "table": "ai_quizzes",
+        "data": {"attempts": json.dumps(attempts)},
+        "filters": {"id": quiz_id}
+    }
+
+    return requests.post(f"{DB_MANAGER_URL}/query", json=update_payload).json()
+
+
+@app.delete("/ai-quizzes/{quiz_id}")
+async def delete_quiz(quiz_id: int):
+    """Deletes the entire quiz and its questions via Cascade."""
+    payload = {
+        "action": "delete",
+        "table": "ai_quizzes",
+        "filters": {"id": quiz_id}
+    }
+    return requests.post(f"{DB_MANAGER_URL}/query", json=payload).json()
+
+
+@app.post("/ai-quiz/question/{question_id}/stats")
+async def update_question_stats(question_id: int, data: dict):
+    try:
+        is_correct = data.get("is_correct")
+        res = requests.post(f"{DB_MANAGER_URL}/query", json={
+            "action": "find",
+            "table": "ai_quiz_questions",
+            "filters": {"id": question_id}
+        }).json()
+
+        if not res.get("data"):
+            raise HTTPException(status_code=404, detail="Question not found")
+
+        question = res["data"][0]
+
+        column = "correct_count" if is_correct else "wrong_count"
+        current_val = question.get(column, 0) or 0
+
+        update_payload = {
+            "action": "update",
+            "table": "ai_quiz_questions",
+            "data": {column: current_val + 1},
+            "filters": {"id": question_id}
+        }
+
+        return requests.post(f"{DB_MANAGER_URL}/query", json=update_payload).json()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/ai-quiz/question/{question_id}")
+async def delete_quiz_question(question_id: int):
+    try:
+        payload = {
+            "action": "delete",
+            "table": "ai_quiz_questions",
+            "filters": {"id": question_id}
+        }
+        res = requests.post(f"{DB_MANAGER_URL}/query", json=payload)
+        return res.json()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+templates = Jinja2Templates(directory="templates")
+
+
+@app.get("/classes/{class_id}/export")
+async def export_lesson(request: Request, class_id: int):
+    try:
+        # 1. Fetch Class and Course metadata
+        class_query = requests.post(f"{DB_MANAGER_URL}/query", json={
+            "action": "find",
+            "table": "classes",
+            "filters": {"id": class_id}
+        }).json()
+
+        if not class_query.get("data"):
+            raise HTTPException(status_code=404, detail="Class not found")
+
+        class_info = class_query["data"][0]
+
+        course_query = requests.post(f"{DB_MANAGER_URL}/query", json={
+            "action": "find",
+            "table": "courses",
+            "filters": {"id": class_info["course_id"]}
+        }).json()
+
+        course_info = course_query["data"][0] if course_query.get("data") else {"name": "Unknown Course"}
+
+        # 2. Fetch and Sort Summaries Hierarchically (DFS)
+        summary_res = requests.post(f"{DB_MANAGER_URL}/query", json={
+            "action": "find",
+            "table": "ai_summaries",
+            "filters": {"class_id": class_id}
+        }).json()
+
+        all_parts = summary_res.get("data", [])
+
+        children_map = {}
+        for part in all_parts:
+            pid = part.get("parent_id")
+            if pid not in children_map:
+                children_map[pid] = []
+            children_map[pid].append(part)
+
+        for pid in children_map:
+            children_map[pid].sort(key=lambda x: x.get("order_index", 0))
+
+        ordered_parts = []
+
+        def traverse(parent_id):
+            for child in children_map.get(parent_id, []):
+                ordered_parts.append(child)
+                traverse(child.get("id"))
+
+        traverse(None)
+        if not ordered_parts:
+            traverse(0)
+
+        # 3. Build Markdown content including Visuals
+        full_summary_md = ""
+        server_url = "http://localhost:8002"  # Change this if your server port changes
+
+        for part in ordered_parts:
+            title = part.get("title", "Untitled")
+            content = part.get("content", "")
+            level = "###" if part.get("parent_id") else "##"
+
+            # --- Visual Handling ---
+            visual_data = part.get("visual", {"type": "none", "value": ""})
+            if isinstance(visual_data, str):
+                try:
+                    visual_data = json.loads(visual_data)
+                except:
+                    visual_data = {"type": "none", "value": ""}
+
+            visual_html = ""
+            v_type = visual_data.get("type")
+            v_value = visual_data.get("value")
+
+            if v_type == "image" and v_value:
+                # Assuming images are served via the /pdf-files static mount
+                img_url = f"{server_url}/pdf-files/{v_value}"
+                visual_html = f"\n\n<img src='{img_url}' class='rounded-3xl shadow-lg my-6 max-w-full mx-auto block' />\n\n"
+
+            elif v_type == "code" and v_value:
+                visual_html = f"\n\n```javascript\n{v_value}\n```\n\n"
+
+            elif v_type == "video" and v_value:
+                visual_html = f"\n\n<div class='bg-slate-100 p-4 rounded-xl text-center my-4 font-bold text-slate-400'>Video Reference: {v_value}</div>\n\n"
+
+            # Combine Title, Content and Visual
+            full_summary_md += f"{level} {title}\n\n{content}{visual_html}\n\n---\n\n"
+
+        if not full_summary_md:
+            full_summary_md = "No summary content available for this class."
+
+        # 4. Fetch Quiz and Questions
+        quiz_res = requests.post(f"{DB_MANAGER_URL}/query", json={
+            "action": "find",
+            "table": "ai_quizzes",
+            "filters": {"class_id": class_id}
+        }).json()
+
+        questions = []
+        if quiz_res.get("data"):
+            q_res = requests.post(f"{DB_MANAGER_URL}/query", json={
+                "action": "find",
+                "table": "ai_quiz_questions",
+                "filters": {"quiz_id": quiz_res["data"][0]["id"]}
+            }).json()
+            questions = q_res.get("data", [])
+            for q in questions:
+                if isinstance(q.get("distractors"), str):
+                    q["distractors"] = json.loads(q["distractors"])
+
+        # 5. Prepare Filename and Response
+        safe_course_name = course_info['name'].replace(" ", "_")
+        safe_date = class_info.get('date_taken', 'no_date').replace("/", "-")
+        filename = f"{safe_course_name}_{safe_date}.html"
+        encoded_filename = urllib.parse.quote(filename)
+
+        context = {
+            "request": request,
+            "course_name": course_info['name'],
+            "class_name": class_info.get('name') or f"Class #{class_info['number']}",
+            "class_date": class_info.get('date_taken', ''),
+            "summary_content": full_summary_md,
+            "quiz_json": json.dumps(questions)
+        }
+
+        response = templates.TemplateResponse("export_template.html", context)
+        response.headers["Content-Disposition"] = f"attachment; filename*=UTF-8''{encoded_filename}"
+
+        return response
+
+    except Exception as e:
+        print(f"Export Error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

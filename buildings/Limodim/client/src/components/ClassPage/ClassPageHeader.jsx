@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Download, Plus } from 'lucide-react';
 
 const ClassPageHeader = ({ 
   courseId, 
@@ -11,6 +12,23 @@ const ClassPageHeader = ({
   onNavigateClass 
 }) => {
   const navigate = useNavigate();
+
+const handleDownload = () => {
+  const classId = currentClass?.id;
+  if (!classId) {
+    alert("מזהה שיעור לא נמצא");
+    return;
+  }
+  const apiBaseUrl = import.meta.env.VITE_API_URL || "http://localhost:8002";
+  const downloadUrl = `${apiBaseUrl}/classes/${classId}/export`;
+  console.log("Downloading from:", downloadUrl);
+  const link = document.createElement('a');
+  link.href = downloadUrl;
+  link.setAttribute('download', `lesson_${classId}.html`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
 
   return (
     <header className="bg-white border-b border-slate-200 p-4 shadow-sm z-40 sticky top-0">
@@ -57,9 +75,25 @@ const ClassPageHeader = ({
           </button>
         </div>
 
-        <div className="flex justify-end">
-          <label className="bg-blue-600 text-white px-5 py-2 rounded-xl font-bold text-xs cursor-pointer active:scale-95 transition shadow-lg hover:bg-blue-700">
-            {isUploading ? 'מעלה...' : '+ הוסף PDF'}
+        <div className="flex justify-end items-center gap-3">
+          <button 
+            onClick={handleDownload}
+            className="flex items-center gap-2 text-[11px] font-black text-slate-400 hover:text-blue-600 transition-all uppercase tracking-tight bg-slate-50 px-3 py-2 rounded-xl border border-slate-100"
+            title="הורד סיכום אופליין"
+          >
+            <Download size={14} />
+            <span className="hidden md:inline">Export HTML</span>
+          </button>
+
+          <label className="bg-blue-600 text-white px-5 py-2 rounded-xl font-bold text-xs cursor-pointer active:scale-95 transition shadow-lg hover:bg-blue-700 flex items-center gap-2">
+            {isUploading ? (
+              'מעלה...'
+            ) : (
+              <>
+                <Plus size={14} />
+                <span>הוסף PDF</span>
+              </>
+            )}
             <input 
               type="file" 
               accept="application/pdf" 

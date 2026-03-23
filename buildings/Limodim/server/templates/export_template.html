@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ course_name }} - {{ class_name }}</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.js"></script>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Assistant', 'sans-serif'] },
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { background-color: #f8fafc; font-family: 'Assistant', sans-serif; color: #1e293b; scroll-behavior: smooth; }
+
+        /* Typography & Markdown Styling */
+        .prose { max-width: 100%; }
+        .summary-section { transition: all 0.3s ease; border-bottom: 1px solid #f1f5f9; padding-bottom: 2rem; margin-bottom: 2rem; }
+        .summary-section:last-child { border-bottom: none; }
+
+        .prose h2 { color: #7c3aed; font-weight: 800; font-size: 1.5rem; margin-top: 1rem; margin-bottom: 1rem; border-right: 4px solid #7c3aed; padding-right: 0.75rem; line-height: 1.2; }
+        .prose h3 { color: #4b5563; font-weight: 700; font-size: 1.2rem; margin-top: 1rem; margin-right: 1rem; position: relative; line-height: 1.3; }
+        .prose h3::before { content: '←'; position: absolute; right: -1.25rem; color: #a78bfa; font-weight: 900; }
+
+        .prose p { margin-top: 1rem; line-height: 1.7; font-size: 1.05rem; margin-right: 1rem; color: #334155; }
+        .prose ul, .prose ol { margin-right: 2.5rem; margin-top: 1rem; }
+        .prose li { font-size: 1rem; line-height: 1.6; margin-bottom: 0.5rem; }
+
+        /* Visuals */
+        .prose img { border-radius: 1rem; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1); margin: 1.5rem auto; max-width: 100%; height: auto; display: block; }
+        .prose pre { background-color: #1e293b !important; border-radius: 0.75rem; padding: 1rem !important; margin: 1rem 0 !important; direction: ltr !important; overflow-x: auto; }
+
+        .math { direction: ltr; display: inline-block; }
+        .katex-display { overflow-x: auto; overflow-y: hidden; margin: 1rem 0; padding: 0.75rem; background: #f1f5f9; border-radius: 0.75rem; }
+
+        .btn-option { transition: all 0.2s; text-align: right; width: 100%; display: flex; align-items: center; justify-content: space-between; }
+
+        /* Highlight match */
+        .search-highlight { background-color: #fef08a; padding: 0 2px; border-radius: 2px; }
+
+        @media (min-width: 768px) {
+            .prose h2 { font-size: 1.85rem; padding-right: 1rem; }
+            .prose h3 { font-size: 1.4rem; margin-right: 2rem; }
+            .prose h3::before { right: -1.5rem; }
+            .prose p { font-size: 1.15rem; margin-right: 2rem; }
+        }
+    </style>
+</head>
+<body class="p-3 md:p-12 pb-24">
+
+    <script id="summary-data" type="text/markdown">{{ summary_content | safe }}</script>
+    <script id="quiz-data" type="application/json">{{ quiz_json | safe }}</script>
+
+    <div class="max-w-4xl mx-auto space-y-6 md:space-y-12">
+
+        <header class="bg-white p-6 md:p-12 rounded-[30px] md:rounded-[40px] shadow-sm border border-slate-200 relative overflow-hidden text-right">
+            <div class="absolute top-0 right-0 w-24 h-24 bg-purple-50 rounded-full -mr-12 -mt-12 opacity-50"></div>
+            <div class="relative">
+                <div class="flex items-center gap-2 text-purple-600 font-black text-[10px] md:text-sm uppercase tracking-widest mb-2">
+                    <span class="bg-purple-600 text-white px-1.5 py-0.5 rounded text-[8px] md:text-[10px]">COURSE</span>
+                    {{ course_name }}
+                </div>
+                <h1 class="text-2xl md:text-5xl font-black text-slate-900 leading-tight mb-3">
+                    {{ class_name }}
+                </h1>
+                <div class="flex flex-wrap items-center gap-4 md:gap-6 text-slate-400 font-bold text-[11px] md:text-sm">
+                    <div class="flex items-center gap-1.5">
+                        <svg width="14" height="14" class="md:w-4 md:h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                        {{ class_date }}
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <section x-data="summaryApp()" class="bg-white p-6 md:p-16 rounded-[30px] md:rounded-[48px] shadow-sm border border-slate-100 text-right">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 md:mb-12 border-b border-slate-50 pb-6">
+                <div class="flex items-center gap-3">
+                    <div class="p-3 md:p-4 bg-purple-600 rounded-xl md:rounded-2xl text-white shadow-lg shadow-purple-100">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" class="md:w-6 md:h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+                    </div>
+                    <div>
+                        <h2 class="text-lg md:text-2xl font-black text-slate-800">סיכום השיעור</h2>
+                        <p class="text-slate-400 text-[10px] md:text-sm font-bold">תוכן מרוכז ומאורגן ללמידה</p>
+                    </div>
+                </div>
+
+                <div class="relative max-w-xs w-full">
+                    <input
+                        type="text"
+                        x-model="searchQuery"
+                        @input="filterSummary()"
+                        placeholder="חפש מילה בסיכום..."
+                        class="w-full pr-10 pl-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all"
+                    >
+                    <svg class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+                </div>
+            </div>
+
+            <div id="summary-content" class="prose prose-slate max-w-none">
+                </div>
+
+            <div x-show="noResults" class="py-12 text-center text-slate-400 font-bold animate-in fade-in" style="display: none;">
+                לא נמצאו פסקאות המכילות את המילה "<span x-text="searchQuery"></span>"
+            </div>
+        </section>
+
+        <section x-data="quizApp()" class="bg-slate-900 p-6 md:p-16 rounded-[30px] md:rounded-[48px] shadow-2xl text-white relative overflow-hidden text-right">
+            <div class="absolute bottom-0 left-0 w-48 h-48 bg-purple-600/10 rounded-full -ml-24 -mb-24"></div>
+
+            <div class="relative z-10">
+                <div class="flex items-center gap-3 mb-8 md:mb-12">
+                    <div class="p-3 md:p-4 bg-white/10 rounded-xl md:rounded-2xl text-purple-400 border border-white/10">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" class="md:w-6 md:h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                    </div>
+                    <div>
+                        <h2 class="text-lg md:text-2xl font-black">תרגול עצמי</h2>
+                        <p class="text-slate-400 text-[10px] md:text-sm font-bold">בחן את השליטה שלך</p>
+                    </div>
+                </div>
+
+                <template x-if="!isFinished">
+                    <div class="space-y-6 md:space-y-8">
+                        <div class="space-y-2.5">
+                            <div class="flex justify-between items-end">
+                                <span class="text-[9px] font-black uppercase tracking-widest text-slate-500" x-text="`שאלה ${currentIndex + 1} מתוך ${questions.length}`"></span>
+                                <span class="text-xl md:text-2xl font-black text-purple-400" x-text="`${Math.round(((currentIndex + 1) / questions.length) * 100)}%` "></span>
+                            </div>
+                            <div class="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                                <div class="h-full bg-gradient-to-l from-purple-500 to-indigo-500 transition-all duration-700" :style="`width: ${((currentIndex + 1) / questions.length) * 100}%` "></div>
+                            </div>
+                        </div>
+
+                        <div class="text-xl md:text-3xl font-bold leading-tight py-2 md:py-4" x-html="renderMath(currentQuestion().question_text)"></div>
+
+                        <div class="grid grid-cols-1 gap-3 md:gap-4">
+                            <template x-for="(opt, index) in shuffledOptions" :key="index">
+                                <button
+                                    @click="handleAnswer(opt)"
+                                    :disabled="isAnswered"
+                                    :class="{
+                                        'bg-white/5 border-white/10 hover:bg-white/10': !isAnswered,
+                                        'bg-green-500/20 border-green-500 text-green-400': isAnswered && opt.isCorrect,
+                                        'bg-red-500/20 border-red-500 text-red-400': isAnswered && selectedAnswer === opt && !opt.isCorrect,
+                                        'opacity-30 grayscale-[0.5]': isAnswered && selectedAnswer !== opt && !opt.isCorrect
+                                    }"
+                                    class="btn-option p-4 md:p-6 rounded-2xl md:rounded-3xl border-2 font-bold group"
+                                >
+                                    <span class="flex-1" x-html="renderMath(opt.text)"></span>
+                                    <template x-if="isAnswered && opt.isCorrect">
+                                        <svg class="text-green-500 shrink-0 mr-2" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                    </template>
+                                </button>
+                            </template>
+                        </div>
+
+                        <template x-if="isAnswered">
+                            <div class="mt-6 md:mt-8 p-6 md:p-8 bg-white/5 rounded-[24px] md:rounded-[40px] border border-white/10 animate-in fade-in slide-in-from-top-4 duration-500 shadow-inner">
+                                <div class="flex items-center gap-2 mb-3 md:mb-4">
+                                    <div class="w-1 h-3 bg-purple-500 rounded-full"></div>
+                                    <div class="text-purple-400 text-[9px] md:text-[10px] font-black uppercase tracking-widest">הסבר הפתרון</div>
+                                </div>
+                                <div class="text-slate-300 text-sm md:text-lg leading-relaxed mb-6" x-html="renderMath(selectedAnswer.explanation || 'אין הסבר זמין.')"></div>
+                                <button @click="nextQuestion()" class="w-full bg-purple-600 hover:bg-purple-500 text-white py-4 md:py-5 rounded-xl md:rounded-2xl font-black transition-all active:scale-[0.98]">
+                                    <span x-text="currentIndex === questions.length - 1 ? 'צפייה בתוצאה' : 'השאלה הבאה ←'"></span>
+                                </button>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+
+                <template x-if="isFinished">
+                    <div class="text-center py-8 md:py-12 space-y-6 md:space-y-8">
+                        <div class="text-6xl md:text-8xl animate-bounce">🏆</div>
+                        <h3 class="text-2xl md:text-4xl font-black">כל הכבוד!</h3>
+                        <div class="bg-white/5 inline-block px-8 py-6 md:px-12 md:py-8 rounded-[30px] md:rounded-[48px] border border-white/10">
+                            <div class="text-slate-400 text-[10px] font-bold uppercase mb-2">ציון סופי</div>
+                            <div class="text-5xl md:text-8xl font-black text-purple-400" x-text="`${Math.round((score / questions.length) * 100)}%` "></div>
+                        </div>
+                        <br>
+                        <button @click="window.location.reload()" class="bg-white/10 hover:bg-white/20 text-white px-8 py-3 rounded-xl font-bold transition-all">נסה שוב</button>
+                    </div>
+                </template>
+            </div>
+        </section>
+
+        <footer class="text-center pt-8 border-t border-slate-100">
+            <p class="text-slate-300 text-[14px] font-black uppercase tracking-widest leading-loose">הופק באופן אוטומטי • Gingilla Farm 2026<br>כל הזכויות שמורות- שון ברקן</p>
+        </footer>
+    </div>
+
+    <script>
+        const rawQuizData = JSON.parse(document.getElementById('quiz-data').textContent || "[]");
+        const summaryMarkdown = document.getElementById('summary-data').textContent.trim();
+
+        marked.setOptions({ gfm: true, breaks: true });
+
+        // --- Summary App Logic ---
+        function summaryApp() {
+            return {
+                searchQuery: '',
+                noResults: false,
+
+                init() {
+                    this.renderSummary();
+                },
+
+                renderSummary() {
+                    const container = document.getElementById('summary-content');
+                    if (!summaryMarkdown || summaryMarkdown.length < 5) {
+                        container.innerHTML = "<div class='py-12 text-center text-slate-300 italic'>אין תוכן זמין.</div>";
+                        return;
+                    }
+
+                    // Split the markdown into parts based on horizontal rules or headers
+                    // Here we use the separator --- we added in main.py
+                    const parts = summaryMarkdown.split('---').filter(p => p.trim().length > 0);
+
+                    container.innerHTML = '';
+
+                    parts.forEach(part => {
+                        const section = document.createElement('div');
+                        section.className = 'summary-section animate-in fade-in';
+                        section.innerHTML = marked.parse(part.trim());
+
+                        // Render Math for this section
+                        renderMathInElement(section);
+
+                        container.appendChild(section);
+                    });
+
+                    // Initial highlight
+                    hljs.highlightAll();
+                },
+
+                filterSummary() {
+                    const query = this.searchQuery.trim().toLowerCase();
+                    const sections = document.querySelectorAll('.summary-section');
+                    let visibleCount = 0;
+
+                    sections.forEach(section => {
+                        const text = section.textContent.toLowerCase();
+                        if (query === '' || text.includes(query)) {
+                            section.style.display = 'block';
+                            visibleCount++;
+                        } else {
+                            section.style.display = 'none';
+                        }
+                    });
+
+                    this.noResults = (visibleCount === 0 && query !== '');
+                }
+            }
+        }
+
+        // --- Global Rendering Helpers ---
+        function renderMathInElement(el) {
+            const regex = /\$\$(.*?)\$\$|\$(.*?)\$/gs;
+            const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
+                acceptNode: function(node) {
+                    if (node.parentNode.tagName === 'CODE' || node.parentNode.tagName === 'PRE') return NodeFilter.FILTER_REJECT;
+                    return NodeFilter.FILTER_ACCEPT;
+                }
+            }, false);
+
+            let node;
+            const nodesToReplace = [];
+            while (node = walk.nextNode()) {
+                if (node.nodeValue.match(/\$/)) nodesToReplace.push(node);
+            }
+
+            nodesToReplace.forEach(textNode => {
+                const content = textNode.nodeValue;
+                const fragment = document.createDocumentFragment();
+                let lastIndex = 0;
+                let match;
+
+                while ((match = regex.exec(content)) !== null) {
+                    fragment.appendChild(document.createTextNode(content.slice(lastIndex, match.index)));
+                    const isDisplay = !!match[1];
+                    const formula = match[1] || match[2];
+                    const span = document.createElement('span');
+                    try {
+                        katex.render(formula, span, { displayMode: isDisplay, throwOnError: false });
+                    } catch (e) { span.textContent = match[0]; }
+                    fragment.appendChild(span);
+                    lastIndex = regex.lastIndex;
+                }
+                fragment.appendChild(document.createTextNode(content.slice(lastIndex)));
+                textNode.parentNode.replaceChild(fragment, textNode);
+            });
+        }
+
+        // --- Quiz App Logic ---
+        function quizApp() {
+            return {
+                questions: rawQuizData,
+                currentIndex: 0,
+                score: 0,
+                isAnswered: false,
+                selectedAnswer: null,
+                isFinished: false,
+                shuffledOptions: [],
+                init() { if (this.questions.length > 0) this.setupQuestion(); },
+                currentQuestion() { return this.questions[this.currentIndex]; },
+                setupQuestion() {
+                    const q = this.currentQuestion();
+                    if (!q) return;
+                    const opts = [
+                        { text: q.correct_answer, isCorrect: true, explanation: q.explanation },
+                        ...(q.distractors || []).map(d => ({ text: d.answer_text, isCorrect: false, explanation: d.explanation }))
+                    ];
+                    this.shuffledOptions = opts.sort(() => Math.random() - 0.5);
+                },
+                handleAnswer(opt) {
+                    if (this.isAnswered) return;
+                    this.selectedAnswer = opt;
+                    this.isAnswered = true;
+                    if (opt.isCorrect) this.score++;
+                },
+                nextQuestion() {
+                    if (this.currentIndex < this.questions.length - 1) {
+                        this.currentIndex++;
+                        this.isAnswered = false;
+                        this.selectedAnswer = null;
+                        this.setupQuestion();
+                    } else { this.isFinished = true; }
+                },
+                renderMath(text) {
+                    if (!text) return "";
+                    return text.replace(/\$\$(.*?)\$\$|\$(.*?)\$/gs, (match, d1, d2) => {
+                        try { return katex.renderToString(d1 || d2, { displayMode: !!d1, throwOnError: false }); }
+                        catch (e) { return match; }
+                    });
+                }
+            }
+        }
+    </script>
+</body>
+</html>

@@ -51,15 +51,15 @@
 
         .btn-option { transition: all 0.2s; text-align: right; width: 100%; display: flex; align-items: center; justify-content: space-between; }
 
-        /* Highlight match */
-        .search-highlight { background-color: #fef08a; padding: 0 2px; border-radius: 2px; }
-
         @media (min-width: 768px) {
             .prose h2 { font-size: 1.85rem; padding-right: 1rem; }
             .prose h3 { font-size: 1.4rem; margin-right: 2rem; }
             .prose h3::before { right: -1.5rem; }
             .prose p { font-size: 1.15rem; margin-right: 2rem; }
         }
+
+        /* Tabs Styling */
+        .tab-active { background-color: rgba(255, 255, 255, 0.1); color: #a78bfa; border-bottom: 2px solid #a78bfa; }
     </style>
 </head>
 <body class="p-3 md:p-12 pb-24">
@@ -112,8 +112,7 @@
                 </div>
             </div>
 
-            <div id="summary-content" class="prose prose-slate max-w-none">
-                </div>
+            <div id="summary-content" class="prose prose-slate max-w-none"></div>
 
             <div x-show="noResults" class="py-12 text-center text-slate-400 font-bold animate-in fade-in" style="display: none;">
                 לא נמצאו פסקאות המכילות את המילה "<span x-text="searchQuery"></span>"
@@ -124,76 +123,124 @@
             <div class="absolute bottom-0 left-0 w-48 h-48 bg-purple-600/10 rounded-full -ml-24 -mb-24"></div>
 
             <div class="relative z-10">
-                <div class="flex items-center gap-3 mb-8 md:mb-12">
-                    <div class="p-3 md:p-4 bg-white/10 rounded-xl md:rounded-2xl text-purple-400 border border-white/10">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" class="md:w-6 md:h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8 md:mb-12">
+                    <div class="flex items-center gap-3">
+                        <div class="p-3 md:p-4 bg-white/10 rounded-xl md:rounded-2xl text-purple-400 border border-white/10">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" class="md:w-6 md:h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                        </div>
+                        <div>
+                            <h2 class="text-lg md:text-2xl font-black">תרגול וסקירה</h2>
+                            <p class="text-slate-400 text-[10px] md:text-sm font-bold">בחן את השליטה שלך בחומר</p>
+                        </div>
                     </div>
-                    <div>
-                        <h2 class="text-lg md:text-2xl font-black">תרגול עצמי</h2>
-                        <p class="text-slate-400 text-[10px] md:text-sm font-bold">בחן את השליטה שלך</p>
+
+                    <div class="flex bg-white/5 p-1 rounded-xl border border-white/10">
+                        <button
+                            @click="activeTab = 'interactive'"
+                            :class="activeTab === 'interactive' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'"
+                            class="px-4 py-2 rounded-lg text-xs md:text-sm font-bold transition-all"
+                        >תרגול אינטראקטיבי</button>
+                        <button
+                            @click="activeTab = 'list'"
+                            :class="activeTab === 'list' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'"
+                            class="px-4 py-2 rounded-lg text-xs md:text-sm font-bold transition-all"
+                        >סקירת שאלות</button>
                     </div>
                 </div>
 
-                <template x-if="!isFinished">
-                    <div class="space-y-6 md:space-y-8">
-                        <div class="space-y-2.5">
-                            <div class="flex justify-between items-end">
-                                <span class="text-[9px] font-black uppercase tracking-widest text-slate-500" x-text="`שאלה ${currentIndex + 1} מתוך ${questions.length}`"></span>
-                                <span class="text-xl md:text-2xl font-black text-purple-400" x-text="`${Math.round(((currentIndex + 1) / questions.length) * 100)}%` "></span>
-                            </div>
-                            <div class="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                                <div class="h-full bg-gradient-to-l from-purple-500 to-indigo-500 transition-all duration-700" :style="`width: ${((currentIndex + 1) / questions.length) * 100}%` "></div>
-                            </div>
-                        </div>
-
-                        <div class="text-xl md:text-3xl font-bold leading-tight py-2 md:py-4" x-html="renderMath(currentQuestion().question_text)"></div>
-
-                        <div class="grid grid-cols-1 gap-3 md:gap-4">
-                            <template x-for="(opt, index) in shuffledOptions" :key="index">
-                                <button
-                                    @click="handleAnswer(opt)"
-                                    :disabled="isAnswered"
-                                    :class="{
-                                        'bg-white/5 border-white/10 hover:bg-white/10': !isAnswered,
-                                        'bg-green-500/20 border-green-500 text-green-400': isAnswered && opt.isCorrect,
-                                        'bg-red-500/20 border-red-500 text-red-400': isAnswered && selectedAnswer === opt && !opt.isCorrect,
-                                        'opacity-30 grayscale-[0.5]': isAnswered && selectedAnswer !== opt && !opt.isCorrect
-                                    }"
-                                    class="btn-option p-4 md:p-6 rounded-2xl md:rounded-3xl border-2 font-bold group"
-                                >
-                                    <span class="flex-1" x-html="renderMath(opt.text)"></span>
-                                    <template x-if="isAnswered && opt.isCorrect">
-                                        <svg class="text-green-500 shrink-0 mr-2" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                                    </template>
-                                </button>
-                            </template>
-                        </div>
-
-                        <template x-if="isAnswered">
-                            <div class="mt-6 md:mt-8 p-6 md:p-8 bg-white/5 rounded-[24px] md:rounded-[40px] border border-white/10 animate-in fade-in slide-in-from-top-4 duration-500 shadow-inner">
-                                <div class="flex items-center gap-2 mb-3 md:mb-4">
-                                    <div class="w-1 h-3 bg-purple-500 rounded-full"></div>
-                                    <div class="text-purple-400 text-[9px] md:text-[10px] font-black uppercase tracking-widest">הסבר הפתרון</div>
+                <template x-if="activeTab === 'interactive'">
+                    <div>
+                        <template x-if="!isFinished">
+                            <div class="space-y-6 md:space-y-8 animate-in fade-in">
+                                <div class="space-y-2.5">
+                                    <div class="flex justify-between items-end">
+                                        <span class="text-[9px] font-black uppercase tracking-widest text-slate-500" x-text="`שאלה ${currentIndex + 1} מתוך ${questions.length}`"></span>
+                                        <span class="text-xl md:text-2xl font-black text-purple-400" x-text="`${Math.round(((currentIndex + 1) / questions.length) * 100)}%` "></span>
+                                    </div>
+                                    <div class="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                                        <div class="h-full bg-gradient-to-l from-purple-500 to-indigo-500 transition-all duration-700" :style="`width: ${((currentIndex + 1) / questions.length) * 100}%` "></div>
+                                    </div>
                                 </div>
-                                <div class="text-slate-300 text-sm md:text-lg leading-relaxed mb-6" x-html="renderMath(selectedAnswer.explanation || 'אין הסבר זמין.')"></div>
-                                <button @click="nextQuestion()" class="w-full bg-purple-600 hover:bg-purple-500 text-white py-4 md:py-5 rounded-xl md:rounded-2xl font-black transition-all active:scale-[0.98]">
-                                    <span x-text="currentIndex === questions.length - 1 ? 'צפייה בתוצאה' : 'השאלה הבאה ←'"></span>
-                                </button>
+
+                                <div class="text-xl md:text-3xl font-bold leading-tight py-2 md:py-4" x-html="renderMath(currentQuestion().question_text)"></div>
+
+                                <div class="grid grid-cols-1 gap-3 md:gap-4">
+                                    <template x-for="(opt, index) in shuffledOptions" :key="index">
+                                        <button
+                                            @click="handleAnswer(opt)"
+                                            :disabled="isAnswered"
+                                            :class="{
+                                                'bg-white/5 border-white/10 hover:bg-white/10': !isAnswered,
+                                                'bg-green-500/20 border-green-500 text-green-400 shadow-[0_0_20px_rgba(34,197,94,0.1)]': isAnswered && opt.isCorrect,
+                                                'bg-red-500/20 border-red-500 text-red-400': isAnswered && selectedAnswer === opt && !opt.isCorrect,
+                                                'opacity-30 grayscale-[0.5]': isAnswered && selectedAnswer !== opt && !opt.isCorrect
+                                            }"
+                                            class="btn-option p-4 md:p-6 rounded-2xl md:rounded-3xl border-2 font-bold group"
+                                        >
+                                            <span class="flex-1" x-html="renderMath(opt.text)"></span>
+                                            <template x-if="isAnswered && opt.isCorrect">
+                                                <svg class="text-green-500 shrink-0 mr-2" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                            </template>
+                                        </button>
+                                    </template>
+                                </div>
+
+                                <template x-if="isAnswered">
+                                    <div class="mt-6 md:mt-8 p-6 md:p-8 bg-white/5 rounded-[24px] md:rounded-[40px] border border-white/10 animate-in fade-in slide-in-from-top-4 duration-500 shadow-inner">
+                                        <div class="flex items-center gap-2 mb-3 md:mb-4">
+                                            <div class="w-1 h-3 bg-purple-500 rounded-full"></div>
+                                            <div class="text-purple-400 text-[9px] md:text-[10px] font-black uppercase tracking-widest">הסבר הפתרון</div>
+                                        </div>
+                                        <div class="text-slate-300 text-sm md:text-lg leading-relaxed mb-6" x-html="renderMath(selectedAnswer.explanation || 'אין הסבר זמין.')"></div>
+                                        <button @click="nextQuestion()" class="w-full bg-purple-600 hover:bg-purple-500 text-white py-4 md:py-5 rounded-xl md:rounded-2xl font-black transition-all active:scale-[0.98]">
+                                            <span x-text="currentIndex === questions.length - 1 ? 'צפייה בתוצאה' : 'השאלה הבאה ←'"></span>
+                                        </button>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+
+                        <template x-if="isFinished">
+                            <div class="text-center py-8 md:py-12 space-y-6 md:space-y-8 animate-in zoom-in">
+                                <div class="text-6xl md:text-8xl animate-bounce">🏆</div>
+                                <h3 class="text-2xl md:text-4xl font-black">כל הכבוד!</h3>
+                                <div class="bg-white/5 inline-block px-8 py-6 md:px-12 md:py-8 rounded-[30px] md:rounded-[48px] border border-white/10">
+                                    <div class="text-slate-400 text-[10px] font-bold uppercase mb-2">ציון סופי</div>
+                                    <div class="text-5xl md:text-8xl font-black text-purple-400" x-text="`${Math.round((score / questions.length) * 100)}%` "></div>
+                                </div>
+                                <br>
+                                <button @click="resetQuiz()" class="bg-white/10 hover:bg-white/20 text-white px-8 py-3 rounded-xl font-bold transition-all">נסה שוב</button>
                             </div>
                         </template>
                     </div>
                 </template>
 
-                <template x-if="isFinished">
-                    <div class="text-center py-8 md:py-12 space-y-6 md:space-y-8">
-                        <div class="text-6xl md:text-8xl animate-bounce">🏆</div>
-                        <h3 class="text-2xl md:text-4xl font-black">כל הכבוד!</h3>
-                        <div class="bg-white/5 inline-block px-8 py-6 md:px-12 md:py-8 rounded-[30px] md:rounded-[48px] border border-white/10">
-                            <div class="text-slate-400 text-[10px] font-bold uppercase mb-2">ציון סופי</div>
-                            <div class="text-5xl md:text-8xl font-black text-purple-400" x-text="`${Math.round((score / questions.length) * 100)}%` "></div>
-                        </div>
-                        <br>
-                        <button @click="window.location.reload()" class="bg-white/10 hover:bg-white/20 text-white px-8 py-3 rounded-xl font-bold transition-all">נסה שוב</button>
+                <template x-if="activeTab === 'list'">
+                    <div class="space-y-4 animate-in fade-in">
+                        <template x-for="(q, idx) in questions" :key="idx">
+                            <div x-data="{ isOpen: false }" class="border border-white/10 rounded-2xl overflow-hidden bg-white/5">
+                                <button @click="isOpen = !isOpen" class="w-full p-5 flex items-start justify-between text-right gap-4 hover:bg-white/5 transition-colors">
+                                    <div class="flex items-start gap-4">
+                                        <span class="bg-white/10 text-purple-400 w-8 h-8 rounded-lg flex items-center justify-center shrink-0 font-black text-xs" x-text="idx + 1"></span>
+                                        <div class="font-bold text-sm md:text-lg" x-html="renderMath(q.question_text)"></div>
+                                    </div>
+                                    <svg class="shrink-0 transition-transform duration-300 text-slate-500" :class="isOpen ? 'rotate-180' : ''" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                                </button>
+
+                                <div x-show="isOpen" x-collapse x-cloak class="p-5 pt-0 border-t border-white/5 bg-slate-900/50">
+                                    <div class="mt-4 space-y-4">
+                                        <div class="p-4 bg-green-500/10 border border-green-500/20 rounded-xl">
+                                            <span class="text-[9px] font-black uppercase text-green-400 block mb-1">תשובה נכונה</span>
+                                            <div class="text-green-300 font-bold" x-html="renderMath(q.correct_answer)"></div>
+                                        </div>
+                                        <div class="p-4 bg-purple-500/10 border border-purple-500/20 rounded-xl">
+                                            <span class="text-[9px] font-black uppercase text-purple-400 block mb-1">הסבר</span>
+                                            <div class="text-slate-300 text-sm leading-relaxed" x-html="renderMath(q.explanation || 'אין הסבר זמין.')"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
                     </div>
                 </template>
             </div>
@@ -215,54 +262,35 @@
             return {
                 searchQuery: '',
                 noResults: false,
-
-                init() {
-                    this.renderSummary();
-                },
-
+                init() { this.renderSummary(); },
                 renderSummary() {
                     const container = document.getElementById('summary-content');
                     if (!summaryMarkdown || summaryMarkdown.length < 5) {
                         container.innerHTML = "<div class='py-12 text-center text-slate-300 italic'>אין תוכן זמין.</div>";
                         return;
                     }
-
-                    // Split the markdown into parts based on horizontal rules or headers
-                    // Here we use the separator --- we added in main.py
                     const parts = summaryMarkdown.split('---').filter(p => p.trim().length > 0);
-
                     container.innerHTML = '';
-
                     parts.forEach(part => {
                         const section = document.createElement('div');
                         section.className = 'summary-section animate-in fade-in';
                         section.innerHTML = marked.parse(part.trim());
-
-                        // Render Math for this section
                         renderMathInElement(section);
-
                         container.appendChild(section);
                     });
-
-                    // Initial highlight
                     hljs.highlightAll();
                 },
-
                 filterSummary() {
                     const query = this.searchQuery.trim().toLowerCase();
                     const sections = document.querySelectorAll('.summary-section');
                     let visibleCount = 0;
-
                     sections.forEach(section => {
                         const text = section.textContent.toLowerCase();
                         if (query === '' || text.includes(query)) {
                             section.style.display = 'block';
                             visibleCount++;
-                        } else {
-                            section.style.display = 'none';
-                        }
+                        } else { section.style.display = 'none'; }
                     });
-
                     this.noResults = (visibleCount === 0 && query !== '');
                 }
             }
@@ -277,27 +305,21 @@
                     return NodeFilter.FILTER_ACCEPT;
                 }
             }, false);
-
             let node;
             const nodesToReplace = [];
-            while (node = walk.nextNode()) {
-                if (node.nodeValue.match(/\$/)) nodesToReplace.push(node);
-            }
-
+            while (node = walk.nextNode()) { if (node.nodeValue.match(/\$/)) nodesToReplace.push(node); }
             nodesToReplace.forEach(textNode => {
                 const content = textNode.nodeValue;
                 const fragment = document.createDocumentFragment();
                 let lastIndex = 0;
                 let match;
-
                 while ((match = regex.exec(content)) !== null) {
                     fragment.appendChild(document.createTextNode(content.slice(lastIndex, match.index)));
                     const isDisplay = !!match[1];
                     const formula = match[1] || match[2];
                     const span = document.createElement('span');
-                    try {
-                        katex.render(formula, span, { displayMode: isDisplay, throwOnError: false });
-                    } catch (e) { span.textContent = match[0]; }
+                    try { katex.render(formula, span, { displayMode: isDisplay, throwOnError: false }); }
+                    catch (e) { span.textContent = match[0]; }
                     fragment.appendChild(span);
                     lastIndex = regex.lastIndex;
                 }
@@ -309,6 +331,7 @@
         // --- Quiz App Logic ---
         function quizApp() {
             return {
+                activeTab: 'list',
                 questions: rawQuizData,
                 currentIndex: 0,
                 score: 0,
@@ -340,6 +363,14 @@
                         this.selectedAnswer = null;
                         this.setupQuestion();
                     } else { this.isFinished = true; }
+                },
+                resetQuiz() {
+                    this.currentIndex = 0;
+                    this.score = 0;
+                    this.isAnswered = false;
+                    this.selectedAnswer = null;
+                    this.isFinished = false;
+                    this.setupQuestion();
                 },
                 renderMath(text) {
                     if (!text) return "";

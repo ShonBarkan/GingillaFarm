@@ -2006,7 +2006,6 @@ async def export_lesson(request: Request, class_id: int):
 
         # 3. Build Markdown content including Visuals
         full_summary_md = ""
-        server_url = "http://localhost:8002"  # Change this if your server port changes
 
         for part in ordered_parts:
             title = part.get("title", "Untitled")
@@ -2026,9 +2025,7 @@ async def export_lesson(request: Request, class_id: int):
             v_value = visual_data.get("value")
 
             if v_type == "image" and v_value:
-                # Assuming images are served via the /pdf-files static mount
-                img_url = f"{server_url}/pdf-files/{v_value}"
-                visual_html = f"\n\n<img src='{img_url}' class='rounded-3xl shadow-lg my-6 max-w-full mx-auto block' />\n\n"
+                pass
 
             elif v_type == "code" and v_value:
                 visual_html = f"\n\n```javascript\n{v_value}\n```\n\n"

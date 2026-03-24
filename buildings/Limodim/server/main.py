@@ -1950,7 +1950,6 @@ async def delete_quiz_question(question_id: int):
 
 templates = Jinja2Templates(directory="templates")
 
-
 @app.get("/classes/{class_id}/export")
 async def export_lesson(request: Request, class_id: int):
     try:
@@ -1974,45 +1973,64 @@ async def export_lesson(request: Request, class_id: int):
 
         course_info = course_query["data"][0] if course_query.get("data") else {"name": "Unknown Course"}
 
-        # 2. Fetch and Sort Summaries Hierarchically (DFS)
+        # 2. Fetch Summaries
         summary_res = requests.post(f"{DB_MANAGER_URL}/query", json={
             "action": "find",
             "table": "ai_summaries",
             "filters": {"class_id": class_id}
         }).json()
 
-        all_parts = summary_res.get("data", [])
+        raw_parts = summary_res.get("data", [])
 
+        # Helper to normalize IDs (Fix for 'unhashable dict' error)
+        def get_safe_id(val):
+            if isinstance(val, dict):
+                return val.get("id")
+            return val
+
+        # 3. Data Normalization
+        clean_parts = []
+        for p in raw_parts:
+            clean_parts.append({
+                **p,
+                "id": get_safe_id(p.get("id")),
+                "parent_id": get_safe_id(p.get("parent_id"))
+            })
+
+        # 4. Hierarchical Sorting (DFS)
         children_map = {}
-        for part in all_parts:
-            pid = part.get("parent_id")
+        for part in clean_parts:
+            pid = part["parent_id"]
             if pid not in children_map:
                 children_map[pid] = []
             children_map[pid].append(part)
 
+        # Sort siblings by order_index
         for pid in children_map:
             children_map[pid].sort(key=lambda x: x.get("order_index", 0))
 
         ordered_parts = []
-
-        def traverse(parent_id):
-            for child in children_map.get(parent_id, []):
+        def traverse(current_pid):
+            for child in children_map.get(current_pid, []):
                 ordered_parts.append(child)
-                traverse(child.get("id"))
+                traverse(child["id"])
 
+        # Execute DFS starting from roots (handles None, 0, or "0")
         traverse(None)
         if not ordered_parts:
-            traverse(0)
+            for root_key in [0, "0", "null"]:
+                if root_key in children_map:
+                    traverse(root_key)
+                    break
 
-        # 3. Build Markdown content including Visuals
+        # 5. Build Markdown content
         full_summary_md = ""
-
         for part in ordered_parts:
             title = part.get("title", "Untitled")
             content = part.get("content", "")
+            # Use ### for sub-topics, ## for root topics
             level = "###" if part.get("parent_id") else "##"
 
-            # --- Visual Handling ---
             visual_data = part.get("visual", {"type": "none", "value": ""})
             if isinstance(visual_data, str):
                 try:
@@ -2021,25 +2039,15 @@ async def export_lesson(request: Request, class_id: int):
                     visual_data = {"type": "none", "value": ""}
 
             visual_html = ""
-            v_type = visual_data.get("type")
-            v_value = visual_data.get("value")
+            if visual_data.get("type") == "code" and visual_data.get("value"):
+                visual_html = f"\n\n```javascript\n{visual_data['value']}\n```\n\n"
 
-            if v_type == "image" and v_value:
-                pass
-
-            elif v_type == "code" and v_value:
-                visual_html = f"\n\n```javascript\n{v_value}\n```\n\n"
-
-            elif v_type == "video" and v_value:
-                visual_html = f"\n\n<div class='bg-slate-100 p-4 rounded-xl text-center my-4 font-bold text-slate-400'>Video Reference: {v_value}</div>\n\n"
-
-            # Combine Title, Content and Visual
             full_summary_md += f"{level} {title}\n\n{content}{visual_html}\n\n---\n\n"
 
-        if not full_summary_md:
+        if not ordered_parts:
             full_summary_md = "No summary content available for this class."
 
-        # 4. Fetch Quiz and Questions
+        # 6. Fetch Quiz and Questions
         quiz_res = requests.post(f"{DB_MANAGER_URL}/query", json={
             "action": "find",
             "table": "ai_quizzes",
@@ -2048,39 +2056,47 @@ async def export_lesson(request: Request, class_id: int):
 
         questions = []
         if quiz_res.get("data"):
+            quiz_obj = quiz_res["data"][0]
+            quiz_id = get_safe_id(quiz_obj.get("id"))
+
             q_res = requests.post(f"{DB_MANAGER_URL}/query", json={
                 "action": "find",
                 "table": "ai_quiz_questions",
-                "filters": {"quiz_id": quiz_res["data"][0]["id"]}
+                "filters": {"quiz_id": quiz_id}
             }).json()
             questions = q_res.get("data", [])
             for q in questions:
                 if isinstance(q.get("distractors"), str):
                     q["distractors"] = json.loads(q["distractors"])
 
-        # 5. Prepare Filename and Response
-        safe_course_name = course_info['name'].replace(" ", "_")
-        safe_date = class_info.get('date_taken', 'no_date').replace("/", "-")
-        filename = f"{safe_course_name}_{safe_date}.html"
+        # 7. Prepare Filename and Context
+        course_name_raw = course_info.get('name', 'Course')
+        class_date_raw = class_info.get('date_taken', 'NoDate')
+        filename = f"{course_name_raw.replace(' ', '_')}_{class_date_raw.replace('/', '-')}.html"
         encoded_filename = urllib.parse.quote(filename)
 
         context = {
             "request": request,
-            "course_name": course_info['name'],
-            "class_name": class_info.get('name') or f"Class #{class_info['number']}",
-            "class_date": class_info.get('date_taken', ''),
+            "course_name": course_name_raw,
+            "class_name": class_info.get('name') or f"Class #{class_info.get('number')}",
+            "class_date": class_date_raw,
             "summary_content": full_summary_md,
             "quiz_json": json.dumps(questions)
         }
 
-        response = templates.TemplateResponse("export_template.html", context)
-        response.headers["Content-Disposition"] = f"attachment; filename*=UTF-8''{encoded_filename}"
-
-        return response
+        # 8. Final Response (Fixed signature for Starlette/FastAPI consistency)
+        return templates.TemplateResponse(
+            request=request,
+            name="export_template.html",
+            context=context,
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"}
+        )
 
     except Exception as e:
-        print(f"Export Error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback
+        print(f"EXPORT CRITICAL ERROR: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
 
 
 if __name__ == "__main__":

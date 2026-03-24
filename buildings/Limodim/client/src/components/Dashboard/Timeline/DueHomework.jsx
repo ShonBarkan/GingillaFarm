@@ -47,7 +47,7 @@ const DueHomework = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {hw.map((item) => (
               <div key={item.id} className={`p-4 rounded-xl border flex justify-between items-center transition-all hover:shadow-md ${
-                item.days_left <= 2 ? 'bg-emerald-50 border-emerald-200 shadow-sm' : 'bg-white border-slate-100'
+                item.days_left <= 2 ? 'bg-red-50 border-red-200 shadow-sm' : 'bg-white border-slate-100'
               }`}>
                 <div className="min-w-0 flex-1">
                   <Link to={`/course/${item.course_id}`} className="font-black text-emerald-900 text-sm md:text-base hover:text-emerald-600 transition-colors block truncate">
@@ -67,7 +67,6 @@ const DueHomework = () => {
             ))}
           </div>
         ) : (
-          /* Updated Empty State - Focused on "No Homework" */
           <div className="flex flex-col items-center py-6">
             <div className="w-14 h-14 bg-emerald-50 rounded-full flex items-center justify-center mb-4 border border-emerald-100 shadow-sm">
               <span className="text-3xl animate-pulse">🌴</span>

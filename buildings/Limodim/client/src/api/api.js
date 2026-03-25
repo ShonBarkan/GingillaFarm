@@ -49,8 +49,10 @@ export const deleteQuizQuestion = (questionId) => api.delete(`/ai-quiz/question/
 
 // --- Class Files (PDF Management) ---
 
-export const uploadPdf = (courseName, classId, formData) => {
+export const uploadPdf = (courseName, classId, fileObject) => {
   const encodedName = encodeURIComponent(courseName);
+  const formData = new FormData();
+  formData.append('file', fileObject); 
   return api.post(`/upload-pdf/${encodedName}/${classId}`, formData, {
     headers: {
       'Content-Type': 'multipart/form-data',

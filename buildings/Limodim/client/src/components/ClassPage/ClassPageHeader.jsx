@@ -1,14 +1,12 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Download, Plus } from 'lucide-react';
+import { Download } from 'lucide-react';
 
 const ClassPageHeader = ({ 
   courseId, 
   currentClass, 
   prevClass, 
   nextClass, 
-  isUploading, 
-  handleFileUpload,
   onNavigateClass 
 }) => {
   const navigate = useNavigate();
@@ -32,7 +30,6 @@ const ClassPageHeader = ({
     <header className="bg-white border-b border-slate-200 p-4 shadow-sm z-40 sticky top-0">
       <div className="max-w-7xl mx-auto grid grid-cols-3 items-center">
         
-        {/* Back to Course */}
         <div className="flex justify-start">
           <button 
             onClick={() => navigate(`/course/${courseId}`)} 
@@ -42,7 +39,6 @@ const ClassPageHeader = ({
           </button>
         </div>
 
-        {/* Navigation Arrows & Title */}
         <div className="flex items-center justify-center gap-4 md:gap-8">
           <button 
             type="button"
@@ -76,7 +72,6 @@ const ClassPageHeader = ({
           </button>
         </div>
 
-        {/* Actions */}
         <div className="flex justify-end items-center gap-3">
           <button 
             onClick={handleDownload}
@@ -85,22 +80,6 @@ const ClassPageHeader = ({
             <Download size={14} />
             <span className="hidden md:inline">Export HTML</span>
           </button>
-
-          <label className="bg-blue-600 text-white px-5 py-2 rounded-xl font-bold text-xs cursor-pointer active:scale-95 transition shadow-lg hover:bg-blue-700 flex items-center gap-2">
-            {isUploading ? 'Uploading...' : (
-              <>
-                <Plus size={14} />
-                <span>Add PDF</span>
-              </>
-            )}
-            <input 
-              type="file" 
-              accept="application/pdf" 
-              className="hidden" 
-              onChange={handleFileUpload} 
-              disabled={isUploading} 
-            />
-          </label>
         </div>
 
       </div>

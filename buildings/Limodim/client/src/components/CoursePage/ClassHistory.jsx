@@ -38,9 +38,8 @@ const ClassHistory = ({ classes, courseId }) => {
 
   const handleUpdate = async (classId, updatedData) => {
     try {
-      // FIX 422: Construct a clean payload with only specific DB fields
       const payload = {
-        course_id: courseId,
+        course_id: parseInt(courseId),
         name: updatedData.name || '',
         number: parseInt(updatedData.number) || 1,
         date_taken: updatedData.date_taken,
@@ -49,25 +48,24 @@ const ClassHistory = ({ classes, courseId }) => {
         location_building: updatedData.location_building || '',
         location_room: updatedData.location_room || '',
         time: updatedData.time || '',
-        summary: Array.isArray(updatedData.summary) 
-          ? JSON.stringify(updatedData.summary) 
-          : updatedData.summary,
-        ai_summary: updatedData.ai_summary || '',
-        ai_quiz: typeof updatedData.ai_quiz === 'object' 
-          ? JSON.stringify(updatedData.ai_quiz) 
-          : updatedData.ai_quiz
+        summary: Array.isArray(updatedData.summary) ? updatedData.summary : []
       };
 
       await api.updateClass(classId, payload);
       await loadFullCourse(courseId);
     } catch (err) {
       console.error("Failed to update class log:", err);
+      alert("שגיאה בעדכון השיעור. בדוק את חיבור השרת.");
     }
   };
 
   const handleAdd = async () => {
     try {
-      await api.createClass({ ...newClass, course_id: courseId });
+      await api.createClass({ 
+        ...newClass, 
+        course_id: courseId,
+        summary: [] 
+      });
       
       setNewClass({
         number: (classes?.length || 0) + 2,

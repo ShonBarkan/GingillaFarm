@@ -13,11 +13,12 @@ const ClassPage = () => {
   const { courseId, classId } = useParams();
   const navigate = useNavigate();
   const { currentFullCourse, loadFullCourse } = useCourses();
-  
   const [activeTab, setActiveTab] = useState('files');
   const [summaryData, setSummaryData] = useState([]);
   const [quizData, setQuizData] = useState(null);
   const [isLoadingAI, setIsLoadingAI] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [selectedFilePath, setSelectedFilePath] = useState(null);
 
   const currentClass = useMemo(() => 
     currentFullCourse?.classes.find(c => c.id === parseInt(classId))
@@ -25,47 +26,71 @@ const ClassPage = () => {
 
   const { prevClass, nextClass } = useMemo(() => {
     if (!currentFullCourse?.classes || !classId) return { prevClass: null, nextClass: null };
-    
     const sortedClasses = [...currentFullCourse.classes].sort((a, b) => a.number - b.number);
     const currentIndex = sortedClasses.findIndex(c => c.id === parseInt(classId));
-    
     return {
       prevClass: currentIndex > 0 ? sortedClasses[currentIndex - 1] : null,
       nextClass: currentIndex < sortedClasses.length - 1 ? sortedClasses[currentIndex + 1] : null
     };
   }, [currentFullCourse?.classes, classId]);
 
+
+const handleFileUpload = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (!file.name.toLowerCase().endsWith('.pdf')) {
+    alert("Please upload PDF files only");
+    return;
+  }
+  setIsUploading(true);
+  try {
+    await api.uploadPdf(currentFullCourse.course.name, classId, file);
+    await loadFullCourse(courseId);
+    e.target.value = ''; 
+    console.log("Success!");
+  } catch (err) {
+    console.error("Upload Error:", err.response?.data || err);
+    const detail = err.response?.data?.detail;
+    const msg = typeof detail === 'string' ? detail : "Invalid file format or server error";
+    alert(`Upload failed: ${msg}`);
+  } finally {
+    setIsUploading(false);
+  }
+};
+
+  const handleDeleteFile = async (path) => {
+    if (!window.confirm("Delete this document?")) return;
+    try {
+      await api.deleteClassFile(currentFullCourse.course.name, classId, path);
+      if (selectedFilePath === path) setSelectedFilePath(null);
+      await loadFullCourse(courseId);
+    } catch (err) {
+      console.error("Delete failed", err);
+    }
+  };
+
   const fetchAiContent = useCallback(async () => {
     if (!classId) return;
-    
-    if (activeTab === 'summary') {
-      setIsLoadingAI(true);
-      try {
+    setIsLoadingAI(true);
+    try {
+      if (activeTab === 'summary') {
         const res = await api.getAiSummary(classId);
         setSummaryData(res.data || []);
-      } catch (err) {
-        console.error("Summary fetch error", err);
-      } finally {
-        setIsLoadingAI(false);
       }
-    }
-
-    if (activeTab === 'quiz') {
-      setIsLoadingAI(true);
-      try {
+      if (activeTab === 'quiz') {
         const res = await api.getAiQuiz(classId);
         setQuizData(res.data || null);
-      } catch (err) {
-        console.error("Quiz fetch error", err);
-      } finally {
-        setIsLoadingAI(false);
       }
+    } catch (err) {
+      console.error("AI fetch error", err);
+    } finally {
+      setIsLoadingAI(false);
     }
   }, [classId, activeTab]);
 
   useEffect(() => {
     fetchAiContent();
-  }, [fetchAiContent, classId]); 
+  }, [fetchAiContent, classId]);
 
   useEffect(() => {
     if (courseId && (!currentFullCourse || currentFullCourse.course.id !== parseInt(courseId))) {
@@ -77,16 +102,12 @@ const ClassPage = () => {
     if (!newId) return;
     setSummaryData([]);
     setQuizData(null);
+    setSelectedFilePath(null);
     navigate(`/course/${courseId}/class/${newId}`);
   };
 
   if (!currentClass) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-        <p className="text-slate-500 font-bold">טוען נתוני שיעור...</p>
-      </div>
-    );
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
   return (
@@ -110,9 +131,11 @@ const ClassPage = () => {
           {activeTab === 'files' && (
             <ClassPageFileSection 
               summaryFiles={currentClass.summary}
-              classId={classId}
-              courseName={currentFullCourse?.course?.name}
-              onRefresh={() => loadFullCourse(courseId)}
+              selectedFilePath={selectedFilePath}
+              onSelectFile={setSelectedFilePath}
+              onDeleteFile={handleDeleteFile}
+              isUploading={isUploading}
+              handleFileUpload={handleFileUpload}
               apiBaseUrl={import.meta.env.VITE_API_URL || "http://localhost:8002"}
             />
           )}

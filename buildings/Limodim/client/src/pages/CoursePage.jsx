@@ -69,8 +69,8 @@ const CoursePage = () => {
 
         {/* Main Content Sections (Syllabus, History, etc.) */}
         <div className="lg:col-span-8 space-y-6 order-2 lg:order-2">
-          <ClassHistory classes={classes} courseId={course.id} />
           <HomeworkList homeworks={homeworks} courseId={course.id} />
+          <ClassHistory classes={classes} courseId={course.id} />
         </div>
 
       </div>

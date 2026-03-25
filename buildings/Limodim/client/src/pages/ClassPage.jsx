@@ -35,28 +35,28 @@ const ClassPage = () => {
   }, [currentFullCourse?.classes, classId]);
 
 
-const handleFileUpload = async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  if (!file.name.toLowerCase().endsWith('.pdf')) {
-    alert("Please upload PDF files only");
-    return;
-  }
-  setIsUploading(true);
-  try {
-    await api.uploadPdf(currentFullCourse.course.name, classId, file);
-    await loadFullCourse(courseId);
-    e.target.value = ''; 
-    console.log("Success!");
-  } catch (err) {
-    console.error("Upload Error:", err.response?.data || err);
-    const detail = err.response?.data?.detail;
-    const msg = typeof detail === 'string' ? detail : "Invalid file format or server error";
-    alert(`Upload failed: ${msg}`);
-  } finally {
-    setIsUploading(false);
-  }
-};
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      alert("Please upload PDF files only");
+      return;
+    }
+    setIsUploading(true);
+    try {
+      await api.uploadPdf(currentFullCourse.course.name, classId, file);
+      await loadFullCourse(courseId);
+      e.target.value = ''; 
+      console.log("Success!");
+    } catch (err) {
+      console.error("Upload Error:", err.response?.data || err);
+      const detail = err.response?.data?.detail;
+      const msg = typeof detail === 'string' ? detail : "Invalid file format or server error";
+      alert(`Upload failed: ${msg}`);
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleDeleteFile = async (path) => {
     if (!window.confirm("Delete this document?")) return;
@@ -68,6 +68,23 @@ const handleFileUpload = async (e) => {
       console.error("Delete failed", err);
     }
   };
+
+  const handleUpdateBirvouz = async (newText) => {
+  try {
+    const payload = {
+      ...currentClass,
+      birvouz: newText,
+      number: parseInt(currentClass.number),
+      course_id: parseInt(courseId),
+      summary: Array.isArray(currentClass.summary) ? currentClass.summary : []
+    };
+    await api.updateClass(classId, payload);
+    await loadFullCourse(courseId);
+  } catch (err) {
+    console.error("Failed to update birvouz", err);
+    alert("Update failed. Check your connection.");
+  }
+};
 
   const fetchAiContent = useCallback(async () => {
     if (!classId) return;
@@ -120,7 +137,7 @@ const handleFileUpload = async (e) => {
         onNavigateClass={handleNavigateClass}
       />
 
-      <ClassPageBirvouzBanner birvouz={currentClass.birvouz} />
+      <ClassPageBirvouzBanner birvouz={currentClass.birvouz} onUpdate={handleUpdateBirvouz} />
 
       <div className="max-w-7xl mx-auto w-full px-4">
         <div className="flex justify-center mt-6">

@@ -23,11 +23,21 @@ const ClassPage = () => {
     currentFullCourse?.classes.find(c => c.id === parseInt(classId))
   , [currentFullCourse?.classes, classId]);
 
-  // Fetch AI content based on active tab
+  const { prevClass, nextClass } = useMemo(() => {
+    if (!currentFullCourse?.classes || !classId) return { prevClass: null, nextClass: null };
+    
+    const sortedClasses = [...currentFullCourse.classes].sort((a, b) => a.number - b.number);
+    const currentIndex = sortedClasses.findIndex(c => c.id === parseInt(classId));
+    
+    return {
+      prevClass: currentIndex > 0 ? sortedClasses[currentIndex - 1] : null,
+      nextClass: currentIndex < sortedClasses.length - 1 ? sortedClasses[currentIndex + 1] : null
+    };
+  }, [currentFullCourse?.classes, classId]);
+
   const fetchAiContent = useCallback(async () => {
     if (!classId) return;
     
-    // Summary is fetched only when tab is active to save resources
     if (activeTab === 'summary') {
       setIsLoadingAI(true);
       try {
@@ -40,7 +50,6 @@ const ClassPage = () => {
       }
     }
 
-    // Quiz is fetched only when tab is active
     if (activeTab === 'quiz') {
       setIsLoadingAI(true);
       try {
@@ -56,7 +65,7 @@ const ClassPage = () => {
 
   useEffect(() => {
     fetchAiContent();
-  }, [fetchAiContent]);
+  }, [fetchAiContent, classId]); 
 
   useEffect(() => {
     if (courseId && (!currentFullCourse || currentFullCourse.course.id !== parseInt(courseId))) {
@@ -65,13 +74,19 @@ const ClassPage = () => {
   }, [courseId, loadFullCourse, currentFullCourse]);
 
   const handleNavigateClass = (newId) => {
+    if (!newId) return;
     setSummaryData([]);
     setQuizData(null);
     navigate(`/course/${courseId}/class/${newId}`);
   };
 
   if (!currentClass) {
-    return <div className="min-h-screen flex items-center justify-center">טוען נתונים...</div>;
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+        <p className="text-slate-500 font-bold">טוען נתוני שיעור...</p>
+      </div>
+    );
   }
 
   return (
@@ -79,6 +94,8 @@ const ClassPage = () => {
       <ClassPageHeader 
         courseId={courseId}
         currentClass={currentClass}
+        prevClass={prevClass}
+        nextClass={nextClass}
         onNavigateClass={handleNavigateClass}
       />
 
@@ -96,6 +113,7 @@ const ClassPage = () => {
               classId={classId}
               courseName={currentFullCourse?.course?.name}
               onRefresh={() => loadFullCourse(courseId)}
+              apiBaseUrl={import.meta.env.VITE_API_URL || "http://localhost:8002"}
             />
           )}
 

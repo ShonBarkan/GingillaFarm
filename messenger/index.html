@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gingilla Messenger</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --container-bg: #1e1e1e;
+            --text-color: #e0e0e0;
+            --accent-color: #00c853;
+            --accent-hover: #009624;
+            --input-bg: #2d2d2d;
+            --border-color: #3d3d3d;
+            --error-color: #ef5350;
+            --status-online: #4caf50;
+            --status-offline: #f44336;
+            --transition: all 0.3s ease;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .container {
+            background-color: var(--container-bg);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            width: 100%;
+            max-width: 480px;
+            border: 1px solid var(--border-color);
+            position: relative;
+        }
+
+        /* Server Status Badge */
+        .server-status {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            display: flex;
+            align-items: center;
+            font-size: 0.75rem;
+            background: rgba(0,0,0,0.3);
+            padding: 4px 10px;
+            border-radius: 20px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-left: 8px;
+            background-color: var(--status-offline);
+        }
+
+        .status-dot.online {
+            background-color: var(--status-online);
+            box-shadow: 0 0 8px var(--status-online);
+        }
+
+        h1 {
+            color: var(--accent-color);
+            margin-top: 0.5rem;
+            margin-bottom: 1.5rem;
+            text-align: center;
+            font-size: 1.8rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.2rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            background-color: var(--input-bg);
+            color: var(--text-color);
+            font-size: 1rem;
+            box-sizing: border-box;
+            transition: var(--transition);
+        }
+
+        input[type="text"]:focus, textarea:focus {
+            border-color: var(--accent-color);
+            outline: none;
+        }
+
+        input#to {
+            direction: ltr;
+            text-align: left;
+        }
+
+        textarea {
+            resize: vertical;
+            height: 120px;
+        }
+
+        .help-text {
+            font-size: 0.8rem;
+            color: #aaaaaa;
+            margin-top: 0.3rem;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background-color: var(--accent-color);
+            color: #ffffff;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: var(--transition);
+            margin-top: 1rem;
+        }
+
+        button:hover:not(:disabled) {
+            background-color: var(--accent-hover);
+            transform: translateY(-2px);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        #status-msg {
+            margin-top: 1rem;
+            text-align: center;
+            font-weight: 500;
+            min-height: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="server-status">
+            <span id="status-text">מתחבר...</span>
+            <div id="status-dot" class="status-dot"></div>
+        </div>
+
+        <h1>Gingilla Messenger</h1>
+
+        <div class="form-group">
+            <label for="to">נמען:</label>
+            <input type="text" id="to" placeholder="me או מספר טלפון" value="me">
+            <div class="help-text">ניתן להזין מספר רגיל (05X...) או פורמט בינלאומי.</div>
+        </div>
+
+        <div class="form-group">
+            <label for="content">הודעה:</label>
+            <textarea id="content" required placeholder="מה נשלח?"></textarea>
+        </div>
+
+        <button type="button" id="sendBtn">שלח הודעה 🚀</button>
+
+        <div id="status-msg"></div>
+    </div>
+
+    <script>
+        const API_BASE = "http://localhost:8020";
+        const sendBtn = document.getElementById('sendBtn');
+        const toInput = document.getElementById('to');
+        const contentInput = document.getElementById('content');
+        const statusMsg = document.getElementById('status-msg');
+        const statusDot = document.getElementById('status-dot');
+        const statusText = document.getElementById('status-text');
+
+        // --- Number Normalization ---
+        function normalizePhoneNumber(phone) {
+            let val = phone.trim().replace(/\D/g, ''); // Remove non-digits
+
+            if (val.toLowerCase() === 'me' || phone.trim().toLowerCase() === 'me') return 'me';
+
+            // If starts with 05, replace with 9725
+            if (val.startsWith('05')) {
+                val = '972' + val.substring(1);
+            }
+            // If starts with 5 (missing leading zero), add 972
+            else if (val.startsWith('5') && val.length === 9) {
+                val = '972' + val;
+            }
+
+            return val;
+        }
+
+        // --- Server Health Check ---
+        async function checkHealth() {
+            try {
+                const res = await fetch(`${API_BASE}/health`);
+                if (res.ok) {
+                    statusDot.classList.add('online');
+                    statusText.textContent = "שרת מחובר";
+                    sendBtn.disabled = false;
+                } else {
+                    throw new Error();
+                }
+            } catch {
+                statusDot.classList.remove('online');
+                statusText.textContent = "שרת לא זמין";
+                sendBtn.disabled = true;
+            }
+        }
+
+        // Check health every 10 seconds
+        setInterval(checkHealth, 10000);
+        checkHealth();
+
+        // --- Status Display ---
+        function showMessage(text, isError = false) {
+            statusMsg.textContent = text;
+            statusMsg.style.color = isError ? 'var(--error-color)' : 'var(--accent-color)';
+            setTimeout(() => { statusMsg.textContent = ''; }, 4000);
+        }
+
+        // --- Send Logic ---
+        sendBtn.addEventListener('click', async () => {
+            const rawTo = toInput.value;
+            const content = contentInput.value.trim();
+            const normalizedTo = normalizePhoneNumber(rawTo);
+
+            if (!content) {
+                showMessage('נא להזין תוכן להודעה', true);
+                return;
+            }
+
+            sendBtn.disabled = true;
+            statusMsg.textContent = 'שולח...';
+
+            try {
+                const response = await fetch(`${API_BASE}/send`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ to: normalizedTo, content: content }),
+                });
+
+                if (response.ok) {
+                    showMessage('הודעה נשלחה בהצלחה! ✅');
+                    contentInput.value = '';
+                } else {
+                    const err = await response.json();
+                    showMessage(`שגיאה: ${err.detail || 'נכשלה השליחה'}`, true);
+                }
+            } catch (error) {
+                showMessage('שגיאה בתקשורת עם השרת ❌', true);
+            } finally {
+                sendBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

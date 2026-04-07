@@ -2,7 +2,6 @@ import axios from 'axios';
 
 const API_BASE = import.meta.env.VITE_ICONS_API_URL || "http://localhost:8301";
 
-
 const iconApi = axios.create({
     baseURL: API_BASE,
 });

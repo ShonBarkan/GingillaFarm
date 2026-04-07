@@ -78,22 +78,5 @@ services:
       - ./Map:/usr/share/nginx/html:ro
     restart: always
 
-  # --- MESSENGER ---
-  messenger:
-    build:
-      context: ./messenger
-    container_name: gingilla_messenger
-    restart: always
-    ports:
-      - "${MESSENGER_PORT}:8020"
-    environment:
-      - MESSENGER_API_BASE=${MESSENGER_API_BASE}
-      - TZ=Asia/Jerusalem
-      - PYTHONUNBUFFERED=1
-    env_file: .env
-    volumes:
-      - ./messenger/data:/root/.mudslide
-      - ./messenger:/app
-
 volumes:
   postgres_data:

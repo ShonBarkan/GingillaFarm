@@ -16,8 +16,29 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 import urllib.parse
-from contextlib import asynccontextmanager
-import asyncio
+
+app = FastAPI(title="Limodim - Academic Management")
+scheduler = AsyncIOScheduler()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://shon-comp:3100", "http://localhost:3100", "http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+load_dotenv()
+DB_MANAGER_URL = os.getenv("DB_MANAGER_URL", "http://localhost:8000")
+BASE_STORAGE_PATH = os.getenv("PDF_STORAGE_PATH", "./uploads/summaries")
+UPLOAD_DIR = os.path.abspath(BASE_STORAGE_PATH)
+
+# --- PDF handle ---
+# Ensure assets directory exists
+if not os.path.exists(UPLOAD_DIR):
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+# Serve files statically so they can be viewed in the browser
+app.mount("/pdf-files", StaticFiles(directory=UPLOAD_DIR), name="summaries")
+
 
 # --- Pydantic Schemas ---
 
@@ -168,58 +189,10 @@ class CourseBase(BaseModel):
         return v
 
 
-# --- Initialization and Config ---
-load_dotenv()
-DB_MANAGER_URL = os.getenv("DB_MANAGER_URL", "http://localhost:8000")
-MESSENGER_URL = os.getenv("MESSENGER_URL", "http://localhost:8020")
-BASE_STORAGE_PATH = os.getenv("PDF_STORAGE_PATH", "./uploads/summaries")
-UPLOAD_DIR = os.path.abspath(BASE_STORAGE_PATH)
+# --- DB Initialization Logic ---
 
-if not os.path.exists(UPLOAD_DIR):
-    os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-scheduler = AsyncIOScheduler()
-
-
-# --- Lifespan Handler (Modern FastAPI Startup/Shutdown) ---
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup Logic
-    init_db_tables()
-
-    # Schedule: Retroactive Sync (Runs throughout the day)
-    scheduler.add_job(sync_classes_retroactive, 'cron', hour='7-20', minute=1)
-
-    # Schedule: Daily WhatsApp Report (Every morning at 08:00)
-    scheduler.add_job(send_daily_whatsapp_job, 'cron', hour=8, minute=0)
-
-    scheduler.start()
-
-    # Initial tasks on server start
-    await sync_classes_retroactive()
-    await send_daily_whatsapp_job()
-
-    yield
-    # Shutdown Logic
-    scheduler.shutdown()
-
-
-app = FastAPI(title="Limodim - Academic Management", lifespan=lifespan)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://shon-comp:3100", "http://localhost:3100", "http://localhost:5173"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-app.mount("/pdf-files", StaticFiles(directory=UPLOAD_DIR), name="summaries")
-
-
-# --- Database Tables Initialization ---
 def init_db_tables():
-    """Ensures all required tables exist in the DB Manager."""
+    """Triggers table creation in the DB Manager for the Limodim project."""
     tables = {
         "courses": {
             "id": "SERIAL PRIMARY KEY",
@@ -317,61 +290,109 @@ def init_db_tables():
         }
     }
 
-    print("Checking database table integrity...")
+    print("Initializing Limodim Tables via DB Manager...")
     for table_name, columns in tables.items():
-        payload = {"action": "create_table", "table": table_name, "columns": columns}
+        payload = {
+            "action": "create_table",
+            "table": table_name,
+            "columns": columns
+        }
         try:
-            requests.post(f"{DB_MANAGER_URL}/query", json=payload)
-        except Exception as e:
-            print(f"Error initializing table {table_name}: {e}")
+            response = requests.post(f"{DB_MANAGER_URL}/query", json=payload)
+            if response.status_code != 200:
+                print(f"Failed to create '{table_name}': {response.text}")
+        except requests.exceptions.ConnectionError:
+            print(f"CRITICAL: Could not connect to DB Manager at {DB_MANAGER_URL}")
 
 
-# --- Background Task: Retroactive Class Sync ---
 async def sync_classes_retroactive():
-    """Generates class entries for past dates based on course schedules."""
     print("--- Starting Retroactive Class Sync ---")
     try:
-        courses_res = requests.post(f"{DB_MANAGER_URL}/query",
-                                    json={"action": "find", "table": "courses", "filters": {}})
-        if courses_res.status_code != 200: return
+        # Fetch all courses
+        courses_res = requests.post(f"{DB_MANAGER_URL}/query", json={
+            "action": "find",
+            "table": "courses",
+            "filters": {}
+        })
+
+        if courses_res.status_code != 200:
+            print(f"Sync Error: Failed to fetch courses. Status: {courses_res.status_code}")
+            return
 
         courses = courses_res.json().get("data", [])
+        print(f"Found {len(courses)} courses to process.")
+
         now = datetime.now()
         today = now.date()
         current_time_str = now.strftime("%H:%M")
+
+        # Map for day names as they appear in the Hebrew calendar logic
         day_map = {0: "שני", 1: "שלישי", 2: "רביעי", 3: "חמישי", 4: "שישי", 5: "שבת", 6: "ראשון"}
 
         for course in courses:
             start_date_str = course.get("start_date")
-            if not start_date_str: continue
+            if not start_date_str:
+                continue
 
-            start_dt = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+            try:
+                start_dt = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+            except ValueError:
+                continue
+
+            # Determine the end limit for synchronization
+            end_date_str = course.get("end_date")
             end_limit = today
+            if end_date_str:
+                try:
+                    potential_end = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+                    if potential_end < today:
+                        end_limit = potential_end
+                except ValueError:
+                    pass
 
             schedule = course.get("schedule", [])
-            if isinstance(schedule, str): schedule = json.loads(schedule)
-            if not schedule: continue
+            if isinstance(schedule, str):
+                schedule = json.loads(schedule)
+
+            if not schedule:
+                continue
 
             check_dt = start_dt
             while check_dt <= end_limit:
                 day_name_hebrew = day_map.get(check_dt.weekday())
+
                 for entry in schedule:
+                    # Clean "יום" prefix from DB entry if exists to ensure match
                     db_day = entry.get("day_of_week", "").replace("יום", "").strip()
+
                     if db_day == day_name_hebrew:
-                        if check_dt == today and entry.get("end_time") > current_time_str:
-                            continue
+                        # If the class is today, only sync if it has already ended
+                        if check_dt == today:
+                            if entry.get("end_time") > current_time_str:
+                                continue
 
                         date_taken_str = check_dt.strftime("%Y-%m-%d")
                         start_time = entry.get("start_time")
 
+                        # Check if this specific instance already exists in the 'classes' table
                         exists_res = requests.post(f"{DB_MANAGER_URL}/query", json={
-                            "action": "find", "table": "classes",
-                            "filters": {"course_id": course["id"], "date_taken": date_taken_str, "time": start_time}
+                            "action": "find",
+                            "table": "classes",
+                            "filters": {
+                                "course_id": course["id"],
+                                "date_taken": date_taken_str,
+                                "time": start_time
+                            }
                         })
 
                         if exists_res.status_code == 200 and len(exists_res.json().get("data", [])) == 0:
+                            print(f"Adding missing class: {course['name']} on {date_taken_str}")
+
+                            # Calculate the next lesson number for this course
                             count_res = requests.post(f"{DB_MANAGER_URL}/query", json={
-                                "action": "find", "table": "classes", "filters": {"course_id": course["id"]}
+                                "action": "find",
+                                "table": "classes",
+                                "filters": {"course_id": course["id"]}
                             })
                             class_num = len(count_res.json().get("data", [])) + 1
 
@@ -386,106 +407,27 @@ async def sync_classes_retroactive():
                                 "location_room": entry.get("location_room"),
                                 "summary": []
                             }
-                            requests.post(f"{DB_MANAGER_URL}/query",
-                                          json={"action": "insert", "table": "classes", "data": new_class_data})
+
+                            requests.post(f"{DB_MANAGER_URL}/query", json={
+                                "action": "insert",
+                                "table": "classes",
+                                "data": new_class_data
+                            })
+
                 check_dt += timedelta(days=1)
-        print("--- Retroactive Sync Complete ---")
-    except Exception as e:
-        print(f"Sync Error: {e}")
-
-
-# --- WhatsApp Report Logic ---
-
-async def get_whatsapp_report_data():
-    """Gathers data for the morning report across all endpoints."""
-    today = date.today()
-    tomorrow = today + timedelta(days=1)
-
-    # 1. Fetch Exams (14-day window)
-    exams = await get_future_exams()
-    upcoming_exams = [e for e in exams if e['days_left'] <= 14]
-
-    # 2. Fetch Homework (All pending tasks)
-    homework = await get_due_homework()
-
-    # 3. Fetch Lessons for Tomorrow
-    all_future = await get_future_classes()
-    tomorrow_str = str(tomorrow)
-    lessons_tomorrow = [c for c in all_future if c['date'] == tomorrow_str]
-
-    # 4. Fetch Missing Data (Oldest 5 entries)
-    missing = await get_past_classes()
-    urgent_missing = missing[:5]
-
-    return {
-        "exams": upcoming_exams,
-        "homework": homework,
-        "lessons": lessons_tomorrow,
-        "missing": urgent_missing
-    }
-
-
-async def send_daily_whatsapp_job():
-    """Compiles and sends the report in chunks to avoid Baileys timeouts."""
-    try:
-        data = await get_whatsapp_report_data()
-        sections = []
-
-        # Part 0: Header
-        sections.append(f"🚜 *Gingilla Farm - Daily Report* \n_{date.today().strftime('%d/%m/%Y')}_")
-
-        # Part 1: Exams
-        if data["exams"]:
-            lines = ["📝 *Upcoming Exams:*"]
-            for ex in data["exams"][:5]:
-                lines.append(
-                    f"• *{ex['course_name']}*: {ex['exam_name']} \n  📅 {ex['date']} (In {ex['days_left']} days)")
-            sections.append("\n".join(lines))
-
-        # Part 2: Homework
-        if data["homework"]:
-            lines = ["📚 *Pending Homework:*"]
-            for hw in data["homework"][:5]:
-                link = f"\n  🔗 {hw['link']}" if hw.get('link') else ""
-                lines.append(
-                    f"• *{hw['course_name']}*: {hw['name']} \n  ⏰ {hw['due_date']} ({hw['days_left']} days){link}")
-            sections.append("\n".join(lines))
-
-        # Part 3: Tomorrow's Schedule
-        if data["lessons"]:
-            lines = [f"⏰ *Schedule for Tomorrow ({data['lessons'][0]['day']}):*"]
-            for l in data["lessons"]:
-                zoom = f"\n  🎥 Zoom: {l['zoom_link']}" if l.get('zoom_link') else ""
-                lines.append(f"• {l['time']} | *{l['course_name']}* \n  📍 {l['location']}{zoom}")
-            sections.append("\n".join(lines))
-        else:
-            sections.append("🎉 *No lessons scheduled for tomorrow!*")
-
-        # Part 4: Missing Items
-        if data["missing"]:
-            lines = ["⚠️ *Missing Summaries/Birvouz:*"]
-            for m in data["missing"]:
-                lines.append(f"• {m['date']} | *{m['course_name']}*")
-            sections.append("\n".join(lines))
-
-        # Execute Sequential Delivery
-        print(f"Dispatching report in {len(sections)} chunks...")
-        for i, content in enumerate(sections):
-            payload = {"content": content, "to": "me"}
-
-            # Note: Change 'to' to a real JID (e.g., '972xxxxxx@s.whatsapp.net') if timeout persists
-            response = requests.post(f"{MESSENGER_URL}/send", json=payload)
-
-            if response.status_code == 200:
-                print(f"Chunk {i + 1} sent.")
-            else:
-                print(f"Chunk {i + 1} failed: {response.text}")
-
-            # Cooldown to allow Baileys to handle encryption handshakes
-            await asyncio.sleep(3)
+        print("--- Sync Completed Successfully ---")
 
     except Exception as e:
-        print(f"WhatsApp Job Failed: {e}")
+        print(f"Cron Error: {e}")
+
+
+@app.on_event("startup")
+async def startup_event():
+    init_db_tables()
+    scheduler.add_job(sync_classes_retroactive, 'cron', hour='7-20', minute=1)  # (e.g., 01:02, 02:02, etc.)
+    scheduler.start()
+    await sync_classes_retroactive()  # Trigger an immediate sync on server startup
+
 
 # --- API Endpoints ---
 
@@ -2155,45 +2097,6 @@ async def export_lesson(request: Request, class_id: int):
         print(f"EXPORT CRITICAL ERROR: {str(e)}")
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
-
-
-# --- Reports Endpoints ---
-
-@app.post("/report/send", status_code=200)
-async def trigger_manual_report():
-    """
-    Manually triggers the daily WhatsApp report.
-    Useful for testing or sending updates outside the scheduled time.
-    """
-    try:
-        # Call the existing job function
-        await send_daily_whatsapp_job()
-
-        return {
-            "status": "success",
-            "message": "Daily report has been dispatched to the Messenger service.",
-            "timestamp": datetime.now().isoformat()
-        }
-    except Exception as e:
-        print(f"Manual Report Error: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to send report: {str(e)}"
-        )
-
-
-@app.get("/report/preview")
-async def preview_report():
-    """
-    Returns the report text in the response without sending it to WhatsApp.
-    Useful for debugging the formatting.
-    """
-    try:
-        data = await get_whatsapp_report_data()
-        message = format_whatsapp_message(data)
-        return {"preview": message}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":

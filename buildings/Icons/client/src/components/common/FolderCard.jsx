@@ -52,23 +52,27 @@ const FolderCard = ({
   };
 
   const sizes = {
-    sm: {
-      container: "p-3 rounded-xl gap-2 min-w-[100px]",
-      iconBox: "w-8 h-8",
-      emoji: "text-xl",
-      title: "text-[11px]",
-      badge: "hidden",
-      deleteBtn: "top-1 left-1 p-1 text-[10px]"
-    },
-    lg: {
-      container: "p-8 rounded-[2rem] gap-4",
-      iconBox: "w-20 h-20",
-      emoji: "text-6xl",
-      title: "text-xl",
-      badge: "block",
-      deleteBtn: "top-3 left-3 p-2 text-sm"
-    }
-  };
+      sm: {
+        // הקטנו פדינג מ-3 ל-2, והגדלנו מינימום רוחב כדי שהטקסט לא ימחץ את האייקון
+        container: "p-2 rounded-xl gap-1.5 min-w-[110px] min-h-[100px] justify-center",
+        // הגדלנו מ-w-8 h-8 ל-w-14 h-14 (כמעט כפול!)
+        iconBox: "w-14 h-14 flex items-center justify-center", 
+        emoji: "text-2xl",
+        title: "text-[12px] leading-tight mt-1",
+        badge: "hidden",
+        deleteBtn: "top-1 left-1 p-1 text-[10px]"
+      },
+      lg: {
+        // הגדלנו את התיקיות הגדולות שיהיו מרשימות יותר
+        container: "p-6 rounded-[2.5rem] gap-4 min-w-[200px]",
+        // הגדלנו מ-w-20 h-20 ל-w-32 h-32
+        iconBox: "w-32 h-32 flex items-center justify-center",
+        emoji: "text-7xl",
+        title: "text-2xl mt-2",
+        badge: "block",
+        deleteBtn: "top-4 left-4 p-2 text-sm"
+      }
+    };
 
   const currentSize = sizes[size];
   const activeClass = isActive 

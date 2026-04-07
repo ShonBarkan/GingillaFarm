@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+@theme {
+  /* הגדרת מחלקות האנימציה */
+  --animate-marquee-left: marquee-left linear infinite;
+  --animate-marquee-right: marquee-right linear infinite;
+
+  /* הגדרת שלבי האנימציה (Keyframes) */
+  @keyframes marquee-left {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+  @keyframes marquee-right {
+    from { transform: translateX(-50%); }
+    to { transform: translateX(0); }
+  }
+}
+
+body {
+  font-family: 'Heebo', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code, pre, .font-mono {
+  font-family: 'Fira Code', monospace;
+}

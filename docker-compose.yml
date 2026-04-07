@@ -78,5 +78,30 @@ services:
       - ./Map:/usr/share/nginx/html:ro
     restart: always
 
+  # --- ICON PROJECT ---
+  icon-backend:
+    build:
+      context: ./buildings/Icons/server 
+    container_name: icon_backend
+    restart: always
+    ports:
+      - "${ICON_BACKEND_PORT_EXTERNAL}:8301"
+    environment:
+      - DB_MANAGER_URL=${DB_MANAGER_URL}
+    depends_on:
+      - db_manager
+
+  icon-frontend:
+    build:
+      context: ./buildings/Icons/client
+      args:
+        -VITE_ICONS_API_URL=${VITE_ICONS_API_URL}
+    container_name: icon_frontend
+    restart: always
+    ports:
+      - "${ICON_FRONTEND_PORT_EXTERNAL}:8300"
+    depends_on:
+      - icon-backend
+
 volumes:
   postgres_data:

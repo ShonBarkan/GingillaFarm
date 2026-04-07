@@ -3,105 +3,154 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gingilla Farm | מפת החווה</title>
+    <title>Gingilla Farm | Task Board</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Quicksand', sans-serif; background-color: #f0f4f8; }
-        .farm-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-        .farm-card:hover { transform: scale(1.02); }
-        .status-pulse { animation: pulse 2s infinite; }
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.4; }
-            100% { opacity: 1; }
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Assistant', sans-serif;
+            background-color: #3e2723;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .main-board {
+            width: 100%;
+            max-width: 1100px;
+            background-image: linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url('farm-bg.jpg');
+            background-size: cover;
+            background-position: center;
+            border: 12px solid #5d4037;
+            border-radius: 8px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+            padding: 30px;
+            position: relative;
+        }
+
+        .board-header {
+            text-align: center;
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 40px;
+            border-bottom: 5px solid #f97316;
+        }
+
+        /* גריד מסודר - 4 בעמודה על מסך גדול */
+        .notes-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 25px;
+            justify-items: center;
+        }
+
+        .task-note {
+            background: #fff9c4;
+            width: 200px;
+            height: 210px;
+            padding: 20px;
+            position: relative;
+            box-shadow: 6px 6px 0px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+
+        .task-note:hover {
+            transform: translateY(-5px);
+            box-shadow: 10px 10px 0px rgba(0,0,0,0.1);
+        }
+
+        .pin {
+            width: 14px; height: 14px;
+            border-radius: 50%;
+            position: absolute;
+            top: 10px; left: 50%;
+            transform: translateX(-50%);
+            border: 1px solid rgba(0,0,0,0.3);
+        }
+
+        .note-icon { font-size: 3.5rem; }
+        .note-text { font-weight: 800; color: #3e2723; font-size: 1.1rem; text-align: center; line-height: 1.2; }
+        .note-port { font-size: 0.7rem; color: #8d6e63; font-weight: 800; background: rgba(0,0,0,0.05); padding: 2px 6px; border-radius: 4px; }
+
+        .status-light {
+            width: 10px; height: 10px;
+            background: #22c55e;
+            border-radius: 50%;
+            position: absolute;
+            top: 10px; right: 10px;
         }
     </style>
 </head>
-<body class="min-h-screen">
+<body>
 
-    <nav class="bg-white shadow-sm sticky top-0 z-50 px-4 py-3">
-        <div class="max-w-6xl mx-auto flex justify-between items-center">
-            <div class="flex items-center gap-2">
-                <span class="text-2xl">🐹</span>
-                <span class="font-bold text-orange-600 text-xl hidden sm:inline">Gingilla Farm</span>
-            </div>
-            <div class="flex gap-4">
-                <button onclick="toggleLanguage()" class="text-sm font-semibold text-slate-600 border border-slate-200 px-3 py-1 rounded-full hover:bg-slate-50">
-                    EN / עב
-                </button>
-            </div>
+    <div class="main-board">
+        
+        <div class="board-header">
+            <h1 class="text-3xl font-black text-slate-800 tracking-tight">GINGILLA FARM</h1>
+            <p class="text-xs text-slate-500 font-bold uppercase tracking-widest">System Overview & Management</p>
         </div>
-    </nav>
 
-    <main class="max-w-6xl mx-auto p-6 md:p-12">
-
-        <header class="text-center mb-12">
-            <h1 id="main-title" class="text-3xl md:text-5xl font-bold text-slate-800 mb-4">מפת החווה</h1>
-            <p id="main-desc" class="text-slate-500 max-w-2xl mx-auto">נהל את המבנים שלך, בדוק את רמות הסילו והתייעץ עם הינשוף משער מרכזי זה.</p>
-        </header>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-
-            <a href="http://shon-comp:8000/docs" target="_blank" class="farm-card bg-white rounded-3xl p-2 shadow-xl shadow-slate-200/50 flex flex-col h-full border border-white">
-                <div class="relative h-48 w-full bg-gradient-to-br from-orange-400 to-orange-500 rounded-2xl flex items-center justify-center overflow-hidden">
-                    <span class="text-7xl">🏰</span>
-                    <div class="absolute top-4 right-4 bg-green-500 w-3 h-3 rounded-full status-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
-                </div>
-                <div class="p-5 flex-grow">
-                    <h2 class="text-xl font-bold text-slate-800" data-en="The Great Gate" data-he="השער הגדול">השער הגדול</h2>
-                    <p class="text-slate-500 text-sm mt-2 leading-relaxed" data-en="The entrance to the farm. Routes all API traffic via DB Manager." data-he="הכניסה לחווה. מנתב את כל תעבורת ה-API דרך מנהל בסיס הנתונים."></p>
-                </div>
-                <div class="px-5 pb-5 text-xs font-bold uppercase tracking-wider text-orange-600">Port: 8000</div>
+        <div class="notes-grid">
+            
+            <a href="http://shon-comp:3100" target="_blank" class="task-note">
+                <div class="pin" style="background: #4caf50;"></div>
+                <div class="status-light"></div>
+                <span class="note-icon">🎓</span>
+                <span class="note-text" data-en="Limodim" data-he="מרכז הלמידה">מרכז הלמידה</span>
+                <span class="note-port">PORT: 3100</span>
             </a>
 
-            <a href="http://shon-comp:3100" target="_blank" class="farm-card bg-white rounded-3xl p-2 shadow-xl shadow-slate-200/50 flex flex-col h-full border border-white">
-                <div class="h-48 w-full bg-gradient-to-br from-blue-400 to-indigo-500 rounded-2xl flex items-center justify-center relative">
-                    <span class="text-7xl">🎓</span>
-                    <div class="absolute top-4 right-4 bg-green-500 w-3 h-3 rounded-full status-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
-                </div>
-                <div class="p-5 flex-grow">
-                    <h2 class="text-xl font-bold text-slate-800" data-en="Limodim" data-he="לימודים">לימודים</h2>
-                    <p class="text-slate-500 text-sm mt-2" data-en="The farm's educational center and dashboard." data-he="מרכז הלמידה ולוח הבקרה של החווה."></p>
-                </div>
-                <div class="px-5 pb-5 text-xs font-bold uppercase tracking-wider text-blue-600">Port: 3100</div>
+            <a href="http://shon-comp:8096" target="_blank" class="task-note">
+                <div class="pin" style="background: #ffeb3b;"></div>
+                <div class="status-light"></div>
+                <span class="note-icon">🍿</span>
+                <span class="note-text" data-en="Cinema" data-he="קולנוע החווה">קולנוע החווה</span>
+                <span class="note-port">PORT: 8096</span>
             </a>
 
-            <a href="http://shon-comp:8005" target="_blank" class="farm-card bg-white rounded-3xl p-2 shadow-xl shadow-slate-200/50 flex flex-col h-full border border-white">
-                <div class="h-48 w-full bg-gradient-to-br from-purple-400 to-fuchsia-600 rounded-2xl flex items-center justify-center relative">
-                    <span class="text-7xl">🦉</span>
-                    <div class="absolute top-4 right-4 bg-green-500 w-3 h-3 rounded-full status-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
-                </div>
-                <div class="p-5 flex-grow">
-                    <h2 class="text-xl font-bold text-slate-800" data-en="The Owl's Nest" data-he="קן הינשוף">קן הינשוף</h2>
-                    <p class="text-slate-500 text-sm mt-2" data-en="AI-powered insights and farm intelligence." data-he="תובנות מבוססות בינה מלאכותית ומודיעין חווה."></p>
-                </div>
-                <div class="px-5 pb-5 text-xs font-bold uppercase tracking-wider text-purple-600">Port: 8005</div>
+            <a href="http://shon-comp:8300" target="_blank" class="task-note">
+                <div class="pin" style="background: #ff9800;"></div>
+                <div class="status-light"></div>
+                <span class="note-icon">🎨</span>
+                <span class="note-text" data-en="Project Icons" data-he="אייקונים לפרויקט">אייקונים לפרויקט</span>
+                <span class="note-port">PORT: 8300</span>
             </a>
 
-            <a href="http://shon-comp:8096" target="_blank" class="farm-card bg-white rounded-3xl p-2 shadow-xl shadow-slate-200/50 flex flex-col h-full border border-white">
-                <div class="h-48 w-full bg-gradient-to-br from-emerald-400 to-teal-600 rounded-2xl flex items-center justify-center relative">
-                    <span class="text-7xl">🍿</span>
-                    <div class="absolute top-4 right-4 bg-green-500 w-3 h-3 rounded-full status-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
-                </div>
-                <div class="p-5 flex-grow">
-                    <h2 class="text-xl font-bold text-slate-800" data-en="Farm Cinema" data-he="קולנוע החווה">קולנוע החווה</h2>
-                    <p class="text-slate-500 text-sm mt-2" data-en="Jellyfin media server for farm entertainment." data-he="שרת המדיה Jellyfin לבידור בתוך החווה."></p>
-                </div>
-                <div class="px-5 pb-5 text-xs font-bold uppercase tracking-wider text-emerald-600">Port: 8096</div>
+            <a href="http://shon-comp:8301/docs" target="_blank" class="task-note">
+                <div class="pin" style="background: #00bcd4;"></div>
+                <div class="status-light"></div>
+                <span class="note-icon">🖼️</span>
+                <span class="note-text" data-en="Icons Server" data-he="שרת אייקונים">שרת אייקונים</span>
+                <span class="note-port">PORT: 8301</span>
+            </a>
+
+            <a href="http://shon-comp:8000/docs" target="_blank" class="task-note">
+                <div class="pin" style="background: #f44336;"></div>
+                <div class="status-light"></div>
+                <span class="note-icon">🗄️</span>
+                <span class="note-text" data-en="DB Manager" data-he="מסד נתונים">מסד נתונים</span>
+                <span class="note-port">PORT: 8000</span>
             </a>
 
         </div>
-    </main>
+
+        <button onclick="toggleLanguage()" class="mt-10 bg-white/90 px-4 py-2 rounded font-bold text-xs shadow-md hover:bg-white transition-all">HE / EN</button>
+    </div>
 
     <script>
         function toggleLanguage() {
             const isEn = document.documentElement.getAttribute('lang') === 'en';
             document.documentElement.setAttribute('lang', isEn ? 'he' : 'en');
             document.documentElement.setAttribute('dir', isEn ? 'rtl' : 'ltr');
-
-            document.getElementById('main-title').textContent = isEn ? 'מפת החווה' : 'The Farm Map';
-            document.getElementById('main-desc').textContent = isEn ? 'נהל את המבנים שלך, בדוק את רמות הסילו והתייעץ עם הינשוף משער מרכזי זה.' : 'Manage your buildings, check the silo levels, and consult the Owl from this central gateway.';
 
             document.querySelectorAll('[data-en]').forEach(el => {
                 el.textContent = isEn ? el.getAttribute('data-he') : el.getAttribute('data-en');

@@ -26,16 +26,6 @@ services:
     depends_on:
       - db
 
-  ai_service:
-    build:
-      context: ./buildings/microservers/ai_service
-    container_name: ai_service
-    restart: always
-    ports:
-      - "${AI_PORT_EXTERNAL}:8002"
-    depends_on:
-      - db
-
   # --- LIMODIM ---
   limodim-backend:
     build:

@@ -85,7 +85,7 @@ services:
     build:
       context: ./buildings/Icons/client
       args:
-        -VITE_ICONS_API_URL=${VITE_ICONS_API_URL}
+        VITE_ICONS_API_URL: ${VITE_ICONS_API_URL}
     container_name: icon_frontend
     restart: always
     ports:

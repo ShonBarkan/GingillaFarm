@@ -168,7 +168,6 @@ async def delete_icon(icon_id: int):
     return requests.post(f"{DB_MANAGER_URL}/query", json=payload).json()
 
 
-
 @app.delete("/icons/bulk/delete")
 async def bulk_delete_icons(
         subject: Optional[str] = Query(None),
@@ -193,6 +192,26 @@ async def bulk_delete_icons(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@app.get("/icons/name/{icon_name}")
+async def get_icon_by_name(icon_name: str):
+    payload = {
+        "action": "find",
+        "table": "icons",
+        "filters": {"name": icon_name}
+    }
+
+    try:
+        res = requests.post(f"{DB_MANAGER_URL}/query", json=payload)
+        data = res.json().get("data", [])
+
+        if not data:
+            raise HTTPException(status_code=404, detail=f"Icon with name '{icon_name}' not found")
+
+        return data[0]
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8001, reload=True)

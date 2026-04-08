@@ -39,7 +39,5 @@ export const iconService = {
 
     deleteIcon: (id) => 
         iconApi.delete(`/icons/${id}`),
-
-    getIconUrl: (filename) => `${API_BASE}/icons-static/${filename}`
     
 };

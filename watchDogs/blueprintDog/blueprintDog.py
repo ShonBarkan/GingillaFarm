@@ -192,7 +192,7 @@ class BlueprintDog:
 
 # --- EXECUTION ---
 if __name__ == "__main__":
-    dog = BlueprintDog(r'/home/shon/GingillaFarm')
+    dog = BlueprintDog(r'C:\projects\GingillaFarm\buildings\Mitamnim\client\src')
     # dog.create_building("circles_server", building_type="python_server")
     # dog.create_building("circles_client", building_type="frontend")
     # dog.create_building("BON_full_app", building_type="full_app")

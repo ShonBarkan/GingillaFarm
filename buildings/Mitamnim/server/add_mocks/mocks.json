@@ -1,0 +1,61 @@
+{
+  "parameters": [
+    {"name": "משקל", "unit": "ק״ג"},
+    {"name": "חזרות", "unit": "חזרות"},
+    {"name": "זמן", "unit": "שניות"},
+    {"name": "מרחק", "unit": "מטרים"},
+    {"name": "סטים", "unit": "סטים"},
+    {"name": "עצימות", "unit": "1-10"}
+  ],
+  "hierarchy": [
+    {
+      "level": 0,
+      "nodes": [
+        {"name": "כושר כללי", "parent": null},
+        {"name": "כוח", "parent": null}
+      ]
+    },
+    {
+      "level": 1,
+      "nodes": [
+        {"name": "שכיבות סמיכה", "parent": "כושר כללי", "params": []},
+        {"name": "סקוואטים", "parent": "כוח", "params": ["משקל", "חזרות"]}
+      ]
+    }
+  ],
+  "assets": [
+    {
+      "exercise_name": "סקוואטים",
+      "asset_type": "video",
+      "url": "https://example.com/squat_tutorial",
+      "title": "מדריך סקוואט נכון",
+      "tags": ["legs", "technique"]
+    }
+  ],
+  "goals": [
+    {
+      "exercise_name": "סקוואטים",
+      "goal_type": "target_weight",
+      "target_value": 100.0
+    }
+  ],
+  "templates": [
+    {
+      "name": "אימון כוח בסיסי",
+      "description": "סקוואטים ושכיבות סמיכה",
+      "parent_category": "כוח",
+      "exercises": [
+        {"name": "סקוואטים", "sets": 3},
+        {"name": "שכיבות סמיכה", "sets": 3}
+      ],
+      "session_params": ["עצימות"]
+    }
+  ],
+  "activities_mock": [
+    {
+      "exercise_name": "סקוואטים",
+      "performance_data": {"משקל": 60, "חזרות": 10},
+      "is_manual": true
+    }
+  ]
+}

@@ -196,20 +196,40 @@ const CreateTemplatePage = () => {
 
     return (
         <div className="max-w-6xl mx-auto p-4 md:p-8 space-y-10" dir="rtl">
-            <div className="flex items-center justify-between animate-in fade-in slide-in-from-top-4 duration-500">
-                <div className="space-y-1">
-                    <h1 className="text-4xl font-black text-gray-900 tracking-tighter">
-                        {isEditMode ? 'עריכת' : 'יצירת'} <span className="text-blue-600">שבלונה</span>
-                    </h1>
-                </div>
-                <div className="flex gap-3">
-                    <button onClick={() => navigate('/workouts')} className="p-4 text-gray-400 hover:text-gray-600 transition-colors">
-                        <X size={24} />
-                    </button>
-                    <button onClick={handleSave} className="bg-blue-600 text-white px-8 py-4 rounded-2xl font-black flex items-center gap-2 shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95">
-                        <Save size={20} />
-                        {isEditMode ? 'עדכן שינויים' : 'שמור שבלונה'}
-                    </button>
+            <div className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100 px-6 py-4 mb-8 -mx-4 md:-mx-8 rounded-[2.5rem] md:rounded-[3rem] animate-in fade-in slide-in-from-top-4 duration-500 shadow-md">
+                <div className="max-w-[1600px] mx-auto flex items-center justify-between">
+                    
+                    {/* Title Section */}
+                    <div className="space-y-1 text-right">
+                        <h1 className="text-2xl md:text-4xl font-black text-gray-900 tracking-tighter">
+                            {isEditMode ? 'עריכת' : 'יצירת'} <span className="text-blue-600">שבלונה</span>
+                        </h1>
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest hidden md:block">
+                            Gingilla Workout Engine v3.0
+                        </p>
+                    </div>
+
+                    {/* Actions Section */}
+                    <div className="flex items-center gap-3">
+                        <button 
+                            onClick={() => navigate('/workouts')} 
+                            className="p-3 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all"
+                            title="ביטול"
+                        >
+                            <X size={24} />
+                        </button>
+                        
+                        <button 
+                            onClick={handleSave} 
+                            className="bg-blue-600 text-white px-6 md:px-8 py-3 md:py-4 rounded-2xl font-black flex items-center gap-2 shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all active:scale-95 group"
+                        >
+                            <Save size={20} className="group-hover:rotate-12 transition-transform" />
+                            <span className="hidden md:inline">
+                                {isEditMode ? 'עדכן שינויים' : 'שמור שבלונה'}
+                            </span>
+                            <span className="md:hidden font-black">שמור</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -239,19 +259,33 @@ const CreateTemplatePage = () => {
                 />
             </div>
 
-            {selectedParentId && (
-                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <div className="bg-gray-50/50 p-6 rounded-[2.5rem] border border-gray-100 relative">
+           {selectedParentId && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                    <div className="bg-gray-50/30 backdrop-blur-sm p-4 md:p-8 rounded-[3.5rem] border border-gray-100/50 relative shadow-sm">
+                        
                         {isFetchingExercise && (
-                            <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-10 flex items-center justify-center rounded-[2.5rem]">
-                                <Loader2 className="animate-spin text-blue-600" size={24} />
+                            <div className="absolute inset-0 bg-white/60 backdrop-blur-md z-20 flex flex-col items-center justify-center rounded-[3.5rem] transition-all">
+                                <div className="p-4 bg-white rounded-2xl shadow-xl shadow-blue-100/50 mb-3">
+                                    <Loader2 className="animate-spin text-blue-600" size={32} />
+                                </div>
+                                <p className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em]">טוען נתונים...</p>
                             </div>
                         )}
-                        <h3 className="text-lg font-black text-gray-900 mb-4 px-2">הוספת תרגילים לאימון</h3>
+
+                        <div className="flex items-center justify-between px-6 py-4 bg-white border border-gray-100/50 rounded-3xl shadow-sm mx-1 mb-6">
+                            <div className="flex items-center gap-3">
+                                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
+                                <h3 className="text-xl font-black text-gray-900 tracking-tighter leading-tight">
+                                    בניית רצף תרגילים
+                                </h3>
+                            </div>
+                        </div>
+
                         <ExerciseSelector 
                             parentId={selectedParentId} 
                             onSelect={handleAddExercise} 
                         />
+                        
                     </div>
                 </div>
             )}

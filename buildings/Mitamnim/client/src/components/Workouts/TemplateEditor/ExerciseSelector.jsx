@@ -114,13 +114,6 @@ const ExerciseSelector = ({ onSelect, parentId }) => {
                     </div>
                 )}
             </div>
-            
-            {/* Footer */}
-            <div className="p-3 bg-white border-t border-gray-50 text-center">
-                <p className="text-[9px] font-black text-gray-300 uppercase tracking-[0.2em]">
-                    Gingilla • Modular Selection
-                </p>
-            </div>
         </div>
     );
 };

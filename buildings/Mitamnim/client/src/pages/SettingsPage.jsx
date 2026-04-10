@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Settings as SettingsIcon, Layers, ListTree, ChevronRight, Database } from 'lucide-react';
-import { Link, useLocation, useNavigate } from 'react-router-dom'; // הוספת useNavigate
+import { Link, useLocation } from 'react-router-dom';
 
 import ParameterManagement from '../components/settings/ParameterManagement';
 import ExerciseManagement from '../components/settings/ExerciseManagement';
@@ -8,12 +8,8 @@ import DatabaseExplorer from '../components/settings/DatabaseExplorer/DatabaseEx
 
 const SettingsPage = () => {
     const location = useLocation();
-    const navigate = useNavigate(); // הוק לניווט
     const [activeTab, setActiveTab] = useState('parameters');
 
-    /**
-     * SYNC URL WITH TABS
-     */
     useEffect(() => {
         const params = new URLSearchParams(location.search);
         const tab = params.get('tab');
@@ -23,89 +19,86 @@ const SettingsPage = () => {
         }
     }, [location]);
 
-    // פונקציה לשינוי טאב שגם מעדכנת את ה-URL
-    const handleTabChange = (tabId) => {
-        setActiveTab(tabId);
-        navigate(`/settings?tab=${tabId}`, { replace: true });
-    };
-
     const tabs = [
         { 
             id: 'parameters', 
             label: 'ניהול פרמטרים', 
             icon: <Layers size={18} />,
-            description: 'הגדרת יחידות המדידה הגלובליות של המערכת'
+            description: 'הוספה ועריכה של יחידות מידה (משקל, זמן, חזרות...)'
         },
         { 
             id: 'exercises', 
             label: 'מבנה תרגילים', 
             icon: <ListTree size={18} />,
-            description: 'בניית היררכיה ושיוך פרמטרים לתרגילים'
+            description: 'בניית היררכיית התרגילים ושיוך פרמטרים לכל תרגיל'
         },
         { 
             id: 'database', 
             label: 'DB Manager', 
             icon: <Database size={18} />,
-            description: 'גישה ישירה וגולמית לכל טבלאות מסד הנתונים'
+            description: 'צפייה בנתונים הגולמיים של כל טבלאות המערכת'
         }
     ];
 
     return (
-        <div className="max-w-6xl mx-auto px-4 py-10" dir="rtl">
-            {/* Navigation Breadcrumbs */}
-            <nav className="flex items-center gap-2 mb-8 text-xs font-bold text-gray-400">
-                <Link to="/" className="hover:text-blue-600 transition-colors">דף הבית</Link>
-                <ChevronRight size={12} />
-                <span className="text-gray-900">הגדרות מערכת</span>
+        /* המכולה הראשית - שקיפות מתונה וטשטוש עמוק */
+        <div className="max-w-6xl mx-auto px-6 py-10 bg-white/40 backdrop-blur-2xl border border-white/30 rounded-[3rem] shadow-2xl" dir="rtl">
+            
+            {/* Breadcrumbs - בועות שקופות לשיפור הקריאות */}
+            <nav className="flex items-center gap-2 mb-8 text-[11px] font-black uppercase tracking-widest">
+                <Link to="/" className="text-gray-500 hover:text-blue-600 transition-colors bg-white/50 px-3 py-1.5 rounded-full backdrop-blur-sm">דף הבית</Link>
+                <ChevronRight size={10} className="text-gray-400" />
+                <span className="text-gray-900 bg-white/70 px-3 py-1.5 rounded-full backdrop-blur-sm">הגדרות מערכת</span>
             </nav>
 
-            {/* Page Title & Icon */}
+            {/* Header Section */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
                 <div className="flex items-center gap-5">
-                    <div className="w-16 h-16 bg-gray-900 text-white rounded-[2rem] flex items-center justify-center shadow-2xl shadow-gray-200">
+                    <div className="w-16 h-16 bg-gray-900/90 text-white rounded-[2rem] flex items-center justify-center shadow-2xl border border-white/10 backdrop-blur-md">
                         <SettingsIcon size={32} />
                     </div>
                     <div>
-                        <h1 className="text-4xl font-black text-gray-900 tracking-tight">הגדרות</h1>
-                        <p className="text-gray-400 font-bold mt-1">ניהול המבנה והפרמטרים של Gingilla</p>
+                        <h1 className="text-4xl font-black text-gray-900 tracking-tight leading-none mb-2">הגדרות</h1>
+                        <p className="text-gray-600 font-bold bg-white/30 px-3 py-1 rounded-lg backdrop-blur-sm w-fit">ניהול המבנה והפרמטרים של Gingilla</p>
                     </div>
                 </div>
             </div>
 
-            {/* Tab Navigation Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
+            {/* Navigation Tabs - כרטיסי זכוכית אישיים */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10">
                 {tabs.map((tab) => (
                     <button
                         key={tab.id}
-                        onClick={() => handleTabChange(tab.id)} // שימוש בפונקציה החדשה
+                        onClick={() => setActiveTab(tab.id)}
                         className={`
-                            flex flex-col items-start p-6 rounded-[2.5rem] border-2 transition-all text-right
+                            relative flex flex-col items-start p-8 rounded-[2.5rem] border-2 transition-all duration-300 text-right backdrop-blur-md
                             ${activeTab === tab.id 
-                                ? 'bg-white border-blue-600 shadow-xl shadow-blue-50' 
-                                : 'bg-gray-50 border-transparent hover:bg-gray-100 text-gray-400'}
+                                ? 'bg-white/80 border-blue-600 shadow-2xl scale-[1.02]' 
+                                : 'bg-white/20 border-white/10 hover:bg-white/40 text-gray-500'}
                         `}
                     >
+                        {/* אייקון בפינה כמו ב-Reference */}
                         <div className={`
-                            w-10 h-10 rounded-xl flex items-center justify-center mb-4
-                            ${activeTab === tab.id ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'}
+                            absolute top-6 left-6 w-10 h-10 rounded-2xl flex items-center justify-center transition-all
+                            ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-lg' : 'bg-white/40 text-gray-500 border border-white/20'}
                         `}>
                             {tab.icon}
                         </div>
-                        <span className={`text-lg font-black mb-1 ${activeTab === tab.id ? 'text-gray-900' : 'text-gray-500'}`}>
+
+                        <span className={`text-xl font-black mb-1 ${activeTab === tab.id ? 'text-gray-900' : 'text-gray-600'}`}>
                             {tab.label}
                         </span>
-                        <p className={`text-xs font-bold leading-relaxed ${activeTab === tab.id ? 'text-blue-600/60' : 'text-gray-400'}`}>
+                        <p className={`text-[10px] font-bold leading-tight max-w-[140px] ${activeTab === tab.id ? 'text-blue-600/70' : 'text-gray-400'}`}>
                             {tab.description}
                         </p>
                     </button>
                 ))}
             </div>
 
-            {/* Active Content Box */}
-            <div className="animate-in fade-in slide-in-from-bottom-6 duration-500">
-                <div className="bg-white rounded-[3rem] border border-gray-100 p-2 sm:p-4 shadow-sm">
-                    <div className="p-4 sm:p-6">
-                        {/* כאן הקומפוננטות יצרכו את ה-Context באופן אוטומטי */}
+            {/* Main Content Area - שכבה חלבית עבה יותר לתוכן הפנימי */}
+            <div className="animate-in fade-in slide-in-from-bottom-6 duration-700">
+                <div className="bg-white/80 backdrop-blur-3xl rounded-[3.5rem] border border-white/40 shadow-2xl overflow-hidden">
+                    <div className="p-4 sm:p-10">
                         {activeTab === 'parameters' && <ParameterManagement />}
                         {activeTab === 'exercises' && <ExerciseManagement />}
                         {activeTab === 'database' && <DatabaseExplorer />}
@@ -113,11 +106,13 @@ const SettingsPage = () => {
                 </div>
             </div>
 
-            {/* System Version Note */}
-            <div className="mt-12 text-center">
-                <p className="text-[10px] font-black text-gray-300 uppercase tracking-[0.3em]">
-                    Gingilla Farm Control Panel v2.0 • Modular API Sync
-                </p>
+            {/* Footer Note */}
+            <div className="mt-16 text-center opacity-40">
+                <div className="inline-block bg-white/20 backdrop-blur-sm px-6 py-2 rounded-full border border-white/10">
+                    <p className="text-[10px] font-black text-gray-900 uppercase tracking-[0.5em]">
+                        Gingilla Control Panel • Modular Architecture
+                    </p>
+                </div>
             </div>
         </div>
     );

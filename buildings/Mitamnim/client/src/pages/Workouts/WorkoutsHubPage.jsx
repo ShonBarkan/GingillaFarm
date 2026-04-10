@@ -96,18 +96,6 @@ const WorkoutsHubPage = () => {
                     </div>
                 )}
             </div>
-
-            {/* Quick Stats Footer (Optional) */}
-            <div className="max-w-7xl mx-auto mt-16 pt-8 border-t border-gray-50 flex items-center gap-8 text-gray-300">
-                <div className="flex items-center gap-2">
-                    <Activity size={16} />
-                    <span className="text-[10px] font-black uppercase tracking-widest">{templates.length} שבלונות זמינות</span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <Clock size={16} />
-                    <span className="text-[10px] font-black uppercase tracking-widest">מוכן לאימון הבא</span>
-                </div>
-            </div>
         </div>
     );
 };

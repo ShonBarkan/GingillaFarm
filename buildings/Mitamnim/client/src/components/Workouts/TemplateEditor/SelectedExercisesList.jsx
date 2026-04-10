@@ -39,11 +39,11 @@ const SelectedExercisesList = ({ exercises, setExercises }) => {
     if (exercises.length === 0) return null;
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-700">
+        <div className="w-full bg-gray-50/30 backdrop-blur-sm border border-gray-100/50 p-4 md:p-6 rounded-[3rem] space-y-6 animate-in fade-in duration-700 shadow-sm" dir="rtl">
             {/* Header with Counter */}
-            <div className="flex items-center justify-between px-4">
+            <div className="flex items-center justify-between px-6 py-4 bg-white border border-gray-100/50 rounded-3xl shadow-sm mx-2">
                 <div className="flex flex-col text-right">
-                    <h3 className="text-xl font-black text-gray-900 tracking-tighter">מבנה האימון</h3>
+                    <h3 className="text-xl font-black text-gray-900 tracking-tighter leading-tight">מבנה האימון</h3>
                     <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">גרור תרגילים כדי לשנות את סדר הביצוע</p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -68,8 +68,13 @@ const SelectedExercisesList = ({ exercises, setExercises }) => {
                             initial={{ opacity: 0, x: -20 }}
                             animate={{ opacity: 1, x: 0 }}
                             exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
+                            whileDrag={{ 
+                                scale: 1.02,
+                                boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.05)",
+                                transition: { duration: 0.1 }
+                            }}
                             layout
-                            className="relative z-0 hover:z-10" // Ensures dragged item stays on top
+                            className="relative z-0 hover:z-10 active:cursor-grabbing cursor-grab"
                         >
                             <ExerciseConfigCard 
                                 exercise={ex}
@@ -81,13 +86,6 @@ const SelectedExercisesList = ({ exercises, setExercises }) => {
                     ))}
                 </AnimatePresence>
             </Reorder.Group>
-
-            {/* Empty State Hint */}
-            <div className="flex justify-center py-4">
-                <p className="text-[10px] text-gray-300 font-bold uppercase tracking-[0.2em] italic">
-                    Gingilla Farm • Workout Engine
-                </p>
-            </div>
         </div>
     );
 };

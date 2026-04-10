@@ -11,7 +11,7 @@ import { Save, XCircle, Plus, Info, Search, X, Loader2 } from 'lucide-react';
 const ActiveWorkoutPage = () => {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
-    const { activeSession, startWorkout, finishWorkout, cancelWorkout, elapsedTime } = useWorkout();
+    const { startWorkout, finishWorkout, cancelWorkout, elapsedTime } = useWorkout();
     
     const [workoutData, setWorkoutData] = useState(null);
     const [templateInfo, setTemplateInfo] = useState(null);
@@ -128,7 +128,7 @@ const ActiveWorkoutPage = () => {
     };
 
     const handleRemoveExercise = (index) => {
-        if (window.confirm("Remove exercise from workout?")) {
+        if (window.confirm("להסיר את התרגיל מהאימון?")) {
             setWorkoutData(prev => ({
                 ...prev,
                 exercises: prev.exercises.filter((_, i) => i !== index)
@@ -137,20 +137,15 @@ const ActiveWorkoutPage = () => {
     };
 
     const handleCancel = () => {
-        if (window.confirm("Cancel workout? All unsaved data will be lost.")) {
+        if (window.confirm("לבטל אימון? כל המידע שלא נשמר יאבד.")) {
             cancelWorkout();
             localStorage.removeItem('active_workout_state');
             navigate('/workouts');
         }
     };
 
-    /**
-     * Atomic Finish Handler
-     * Logic: Save to DB first, then cleanup local state.
-     */
     const onFinishConfirm = async (modalData) => {
         if (!workoutData) return;
-
         try {
             const allLogs = [];
             workoutData.exercises.forEach(ex => {
@@ -164,17 +159,13 @@ const ActiveWorkoutPage = () => {
                     }
                 });
             });
-
-            // The finishWorkout call now includes modalData (summary_data + notes)
-            // It will handle the single PATCH request to the server
             await finishWorkout(modalData, allLogs);
-            
-            // Cleanup UI only after successful server response
+            localStorage.removeItem('active_workout_state');
             setIsFinishModalOpen(false);
             navigate('/workouts');
         } catch (err) {
             console.error("Failed to finish workout:", err);
-            alert("Error saving workout to database. Please try again.");
+            alert("שגיאה בשמירת האימון. נסה שוב.");
         }
     };
 
@@ -194,42 +185,75 @@ const ActiveWorkoutPage = () => {
     return (
         <div className="max-w-4xl mx-auto p-4 md:p-8 pb-40" dir="rtl">
             
-            <div className="mb-10 px-4">
-                <h1 className="text-4xl md:text-5xl font-black text-gray-900 tracking-tighter mb-2">
-                    {templateInfo?.name || "Personal Workout"}
-                </h1>
-                {templateInfo?.description && (
-                    <div className="flex items-center gap-2 text-gray-400 font-bold">
-                        <Info size={16} />
-                        <p className="text-sm md:text-lg">{templateInfo.description}</p>
+            <div className="sticky top-4 z-50 mb-10 px-2 md:px-4">
+                <div className="bg-white/95 backdrop-blur-xl p-3 md:p-4 rounded-[3rem] shadow-2xl border border-gray-100 flex items-center justify-between gap-4 transition-all duration-300">
+                    
+                    <div className="flex items-center gap-3 md:gap-5 border-l border-gray-100 pl-4 shrink-0">
+                        <button 
+                            onClick={handleCancel} 
+                            className="p-2.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all active:scale-90"
+                            title="ביטול אימון"
+                        >
+                            <XCircle size={22} />
+                        </button>
+                        
+                        <div className="flex flex-col text-right min-w-0">
+                            <h1 className="text-xl md:text-lg font-black text-gray-900 tracking-tighter truncate max-w-[120px] md:max-w-[200px] leading-tight">
+                                {templateInfo?.name || "אימון אישי"}
+                            </h1>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="text-[8px] font-black text-blue-500 uppercase tracking-widest">זמן:</span>
+                                <div className="text-xs md:text-sm font-black text-gray-700 tabular-nums">
+                                    <WorkoutTimer />
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                )}
-            </div>
 
-            <div className="flex items-center justify-between mb-8 bg-white/90 backdrop-blur-md p-5 md:p-6 rounded-[2.5rem] shadow-sm border border-gray-100 sticky top-4 z-30">
-                <div className="flex items-center gap-4">
-                    <button onClick={handleCancel} className="text-gray-300 hover:text-red-500 transition-colors">
-                        <XCircle size={28} />
-                    </button>
-                    <div>
-                        <h2 className="text-[9px] md:text-[10px] font-black text-blue-500 uppercase tracking-widest leading-none mb-1">Active Time</h2>
-                        <WorkoutTimer />
+                    {/* צד שמאל: כפתורי פעולה מהירים */}
+                    <div className="flex items-center gap-2">
+                        {/* הוספת תרגיל - כפתור קומפקטי */}
+                        <button 
+                            onClick={() => setIsAddExerciseOpen(true)}
+                            className="flex items-center gap-2 bg-gray-50 text-gray-700 px-3 md:px-4 py-2.5 rounded-2xl font-black border border-gray-100 hover:border-blue-200 hover:bg-white transition-all group active:scale-95 shadow-sm"
+                        >
+                            <Plus size={16} className="text-blue-600 group-hover:rotate-90 transition-transform" />
+                            <span className="hidden sm:inline text-[11px]">הוסף תרגיל</span>
+                        </button>
+
+                        {/* סיום אימון - הכפתור המרכזי */}
+                        <button 
+                            onClick={() => setIsFinishModalOpen(true)}
+                            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 md:px-6 md:py-3.5 rounded-2xl font-black shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all active:scale-95 shrink-0"
+                        >
+                            <Save size={16} />
+                            <span className="text-[11px] md:text-sm">סיום אימון</span>
+                        </button>
                     </div>
                 </div>
-                <div className="bg-blue-50 text-blue-600 px-4 py-2 rounded-xl text-xs font-black">
-                    {workoutData?.exercises?.length || 0} Exercises
-                </div>
             </div>
 
-            <Reorder.Group axis="y" values={workoutData.exercises} onReorder={handleReorderExercises} className="space-y-4 md:y-6">
-                <AnimatePresence initial={false}>
+            {/* 3. Reorderable Exercises List */}
+            <Reorder.Group 
+                axis="y" 
+                values={workoutData.exercises} 
+                onReorder={handleReorderExercises} 
+                className="space-y-6"
+            >
+                <AnimatePresence initial={false} mode="popLayout">
                     {workoutData.exercises.map((exercise, idx) => (
                         <Reorder.Item 
                             key={exercise.instanceId} 
                             value={exercise}
-                            initial={{ opacity: 0, y: 10 }}
+                            initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95 }}
+                            whileDrag={{ 
+                                scale: 1.02, 
+                                boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.1)",
+                                zIndex: 50 
+                            }}
+                            className="relative"
                         >
                             <ActiveExerciseCard 
                                 exercise={exercise}
@@ -242,54 +266,35 @@ const ActiveWorkoutPage = () => {
                 </AnimatePresence>
             </Reorder.Group>
 
-            <div className="fixed bottom-8 left-6 md:left-12 flex flex-col gap-4 z-[100] items-start">
-                <motion.button 
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setIsAddExerciseOpen(true)}
-                    className="flex items-center gap-3 bg-white text-gray-700 px-5 py-4 rounded-[2rem] font-black shadow-2xl border border-gray-100 hover:border-blue-200 transition-all group"
-                >
-                    <div className="p-2 bg-blue-50 text-blue-600 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                        <Plus size={20} />
-                    </div>
-                    <span className="text-sm">Add Exercise</span>
-                </motion.button>
-
-                <motion.button 
-                    whileHover={{ scale: 1.05, y: -2 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setIsFinishModalOpen(true)}
-                    className="flex items-center gap-4 bg-blue-600 text-white px-6 py-5 md:px-8 md:py-6 rounded-[2.2rem] font-black shadow-2xl shadow-blue-200 hover:bg-blue-700 transition-all"
-                >
-                    <Save size={24} />
-                    <span className="text-lg">Finish Workout</span>
-                </motion.button>
-            </div>
-
+            {/* 4. Full-screen Add Exercise Drawer */}
             <AnimatePresence>
                 {isAddExerciseOpen && (
                     <motion.div 
                         initial={{ y: "100%" }}
                         animate={{ y: 0 }}
                         exit={{ y: "100%" }}
+                        transition={{ type: "spring", damping: 25, stiffness: 200 }}
                         className="fixed inset-0 z-[200] bg-white flex flex-col"
                     >
-                        <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-                            <h3 className="text-2xl font-black text-gray-900 tracking-tighter">Add Exercise</h3>
-                            <button onClick={() => setIsAddExerciseOpen(false)} className="p-3 bg-gray-100 rounded-2xl text-gray-500">
+                        <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-white sticky top-0">
+                            <h3 className="text-2xl font-black text-gray-900 tracking-tighter">הוספת תרגיל</h3>
+                            <button 
+                                onClick={() => setIsAddExerciseOpen(false)} 
+                                className="p-3 bg-gray-100 rounded-2xl text-gray-500 hover:bg-gray-200 transition-colors"
+                            >
                                 <X size={20} />
                             </button>
                         </div>
                         
-                        <div className="p-6">
-                            <div className="relative">
-                                <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                        <div className="p-6 bg-gray-50/50">
+                            <div className="relative group">
+                                <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors" size={18} />
                                 <input 
                                     type="text"
-                                    placeholder="Search exercise..."
+                                    placeholder="חפש תרגיל להוספה..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full bg-gray-50 border-none rounded-2xl py-4 pr-12 pl-4 font-bold text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                                    className="w-full bg-white border-2 border-transparent focus:border-blue-100 rounded-2xl py-4 pr-12 pl-4 font-bold text-gray-900 shadow-sm outline-none transition-all"
                                 />
                             </div>
                         </div>
@@ -299,13 +304,15 @@ const ActiveWorkoutPage = () => {
                                 <button
                                     key={ex.id}
                                     onClick={() => handleAddManualExercise(ex)}
-                                    className="w-full p-5 bg-white border border-gray-100 rounded-[1.5rem] flex items-center justify-between hover:border-blue-500 hover:bg-blue-50/30 transition-all text-right group"
+                                    className="w-full p-5 bg-white border border-gray-100 rounded-[1.5rem] flex items-center justify-between hover:border-blue-500 hover:bg-blue-50/30 transition-all text-right group shadow-sm active:scale-[0.98]"
                                 >
-                                    <div>
+                                    <div className="flex flex-col">
                                         <p className="font-black text-gray-900 group-hover:text-blue-600 transition-colors">{ex.name}</p>
-                                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Click to Add</p>
+                                        <p className="text-[9px] text-gray-400 font-black uppercase tracking-widest mt-0.5">לחץ להוספה מהירה</p>
                                     </div>
-                                    <Plus size={18} className="text-gray-300 group-hover:text-blue-500" />
+                                    <div className="p-2 bg-gray-50 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-all">
+                                        <Plus size={18} />
+                                    </div>
                                 </button>
                             ))}
                         </div>
@@ -313,6 +320,7 @@ const ActiveWorkoutPage = () => {
                 )}
             </AnimatePresence>
 
+            {/* 5. Finish Workout Modal */}
             <SessionParameterModal 
                 isOpen={isFinishModalOpen}
                 onClose={() => setIsFinishModalOpen(false)}

@@ -93,5 +93,32 @@ services:
     depends_on:
       - icon-backend
 
+# --- MITAMNIM ---
+  mitamnim-backend:
+    build:
+      context: ./buildings/Mitamnim/server
+    container_name: mitamnim_backend
+    restart: always
+    ports:
+      - "${MITAMNIM_BACKEND_PORT}:8401"
+    environment:
+      - DB_MANAGER_URL=${DB_MANAGER_URL}
+    env_file: .env
+    depends_on:
+      - db_manager
+
+  mitamnim-frontend:
+    build:
+      context: ./buildings/Mitamnim/client
+      args:
+        VITE_MITAMNIM_API_URL: ${VITE_MITAMNIM_API_URL}
+        VITE_ICONS_API_URL: ${VITE_ICONS_API_URL}
+        CACHE_KEY_MITAMNIM: ${CACHE_KEY_MITAMNIM}
+    container_name: mitamnim_frontend
+    restart: always
+    ports:
+      - "${MITAMNIM_FRONTEND_PORT}:8400"
+    depends_on:
+      - mitamnim-backend
 volumes:
   postgres_data:

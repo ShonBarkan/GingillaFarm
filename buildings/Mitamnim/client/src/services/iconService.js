@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-const BASE_URL = 'http://shon-comp:8301/icons';
-const CACHE_KEY = 'gingilla_icons_cache';
+const BASE_URL = import.meta.env.VITE_ICONS_API_URL || 'http://localhost:8301/icons';
+const CACHE_KEY = import.meta.env.VITE_ICONS_API_URL ||'gingilla_icons_cache';
 
 // Load existing cache from localStorage or start empty
 const getStoredCache = () => {

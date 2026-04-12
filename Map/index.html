@@ -20,7 +20,8 @@
         .main-board {
             width: 100%;
             max-width: 1100px;
-            background-image: linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url('farm-bg.jpg');
+            /* עדכון לשם הקובץ החדש */
+            background-image: linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url('map_pic.png');
             background-size: cover;
             background-position: center;
             border: 12px solid #5d4037;
@@ -39,7 +40,6 @@
             border-bottom: 5px solid #f97316;
         }
 
-        /* גריד מסודר - 4 בעמודה על מסך גדול */
         .notes-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -109,6 +109,14 @@
                 <span class="note-port">PORT: 3100</span>
             </a>
 
+            <a href="http://shon-comp:8400" target="_blank" class="task-note">
+                <div class="pin" style="background: #e91e63;"></div>
+                <div class="status-light"></div>
+                <span class="note-icon">🥋</span>
+                <span class="note-text" data-en="Trainees" data-he="מתאמנים">מתאמנים</span>
+                <span class="note-port">PORT: 8400</span>
+            </a>
+
             <a href="http://shon-comp:8096" target="_blank" class="task-note">
                 <div class="pin" style="background: #ffeb3b;"></div>
                 <div class="status-light"></div>
@@ -139,6 +147,14 @@
                 <span class="note-icon">🗄️</span>
                 <span class="note-text" data-en="DB Manager" data-he="מסד נתונים">מסד נתונים</span>
                 <span class="note-port">PORT: 8000</span>
+            </a>
+
+            <a href="http://shon-comp:8401/docs" target="_blank" class="task-note">
+                <div class="pin" style="background: #3f51b5;"></div>
+                <div class="status-light"></div>
+                <span class="note-icon">⚔️</span>
+                <span class="note-text" data-en="Trainees Server" data-he="מתאמנים שרת">מתאמנים שרת</span>
+                <span class="note-port">PORT: 8401</span>
             </a>
 
         </div>

@@ -1,21 +1,29 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from typing import Optional, List
-from controllers.stats import calculate_exercise_stats, get_trend_data
-from models.stats import ExerciseStats
+from controllers import stats as controller
+
 
 router = APIRouter(prefix="/stats", tags=["stats"])
 
-@router.get("/exercise/{exercise_id}", response_model=ExerciseStats)
-async def get_exercise_stats(exercise_id: int):
+@router.get("/exercise/{exercise_id}")
+async def get_exercise_stats(
+    exercise_id: int,
+    start: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
+    end: Optional[str] = Query(None, description="End date (YYYY-MM-DD)")
+):
     """
-    Returns calculated summary statistics for a specific exercise and its descendants.
+    Returns calculated summary statistics for a specific exercise and its descendants,
+    with optional date range filtering.
     """
-    return calculate_exercise_stats(exercise_id)
-
+    return controller.calculate_exercise_stats(exercise_id, start_date=start, end_date=end)
 
 @router.get("/exercise/{exercise_id}/trend")
-async def get_trend(exercise_id: int, start: Optional[str] = None, end: Optional[str] = None):
+async def get_exercise_trend(
+    exercise_id: int,
+    start: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
+    end: Optional[str] = Query(None, description="End date (YYYY-MM-DD)")
+):
     """
-    Returns raw activity logs within a date range for trend visualization.
+    Returns full log history for trend visualization, filtered by date range.
     """
-    return get_trend_data(exercise_id, start, end)
+    return controller.get_trend_data(exercise_id, start_date=start, end_date=end)

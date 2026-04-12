@@ -21,7 +21,8 @@ const ROUTES = {
     'parameters': '/parameters/',
     'workout_templates': '/workout-templates/',
     'workout_sessions': '/workout-sessions/',
-    'active_params': '/active-params/'
+    'active_params': '/active-params/',
+    'dashboard': '/dashboard/'
 };
 
 export const mitamnimService = {
@@ -156,6 +157,11 @@ export const mitamnimService = {
         return ids;
     },
 
+    updateWorkoutTemplate: async (id, templateData) => {
+        const response = await mitamnimApi.patch(`${ROUTES.workout_templates}${id}`, templateData);
+        return response.data;
+    },
+
 
     /**
      * =================================================================
@@ -224,9 +230,21 @@ export const mitamnimService = {
      * =================================================================
      */
 
-    getExerciseStats: async (exerciseId) => {
+    getExerciseStats: async (exerciseId, startDate = null, endDate = null) => {
         try {
-            const response = await mitamnimApi.get(`/stats/exercise/${exerciseId}`);
+            // Build the query string based on provided dates
+            let url = `/stats/exercise/${exerciseId}`;
+            const params = new URLSearchParams();
+            
+            if (startDate) params.append('start', startDate);
+            if (endDate) params.append('end', endDate);
+            
+            const queryString = params.toString();
+            if (queryString) {
+                url += `?${queryString}`;
+            }
+
+            const response = await mitamnimApi.get(url);
             return response.data;
         } catch (error) {
             console.error(`Failed to fetch stats for exercise ${exerciseId}:`, error);
@@ -279,18 +297,33 @@ export const mitamnimService = {
      * =================================================================
      */
 
-    // Fetches history with smart exercise inheritance (includes children)
     getActivityHistory: async (filters = {}) => {
         const params = { ...filters };
         const response = await mitamnimApi.get(ROUTES.activity_history, { params });
         return response.data;
     },
 
-    // Shortcut for exercise-specific history (used for progress charts)
     getExerciseHistory: async (exerciseId, limit = 20) => {
         const response = await mitamnimApi.get(`${ROUTES.activity_history}exercise/${exerciseId}`, {
             params: { limit }
         });
         return response.data;
+    },
+
+    /**
+     * =================================================================
+     * 9. DASHBOARD DATA
+     * =================================================================
+     */
+
+    getDashboardSummary: async (startDate = null, endDate = null) => {
+        const params = {};
+        if (startDate) params.start = startDate;
+        if (endDate) params.end = endDate;
+
+        const response = await mitamnimApi.get(`${ROUTES.dashboard}summary`, { params });
+        return response.data;
     }
+
+
 };

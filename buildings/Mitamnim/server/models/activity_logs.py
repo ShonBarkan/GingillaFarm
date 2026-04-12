@@ -1,5 +1,6 @@
-from pydantic import BaseModel
-from typing import Optional, Dict, Any
+from pydantic import BaseModel, Field
+from typing import Optional, Dict, Any, List
+
 
 # =================================================================
 # BASE SCHEMA
@@ -8,31 +9,29 @@ from typing import Optional, Dict, Any
 class ActivityLogBase(BaseModel):
     exercise_id: int
     performance_data: Dict[str, Any]
-    workout_session_id: Optional[int] = None
+    workout_session_id: Any = None
     is_manual: bool = True
+
 
 # =================================================================
 # CREATE SCHEMA (POST)
 # =================================================================
 
 class ActivityLogCreate(ActivityLogBase):
-    """
-    Used for logging a new performance entry.
-    Timestamp is usually handled by the database but can be provided.
-    """
     timestamp: Optional[str] = None
+
 
 # =================================================================
 # UPDATE SCHEMA (PUT / PATCH)
 # =================================================================
 
 class ActivityLogUpdate(BaseModel):
-    """Used for correcting logged data."""
     exercise_id: Optional[int] = None
     performance_data: Optional[Dict[str, Any]] = None
-    workout_session_id: Optional[int] = None
+    workout_session_id: Any = None
     timestamp: Optional[str] = None
     is_manual: Optional[bool] = None
+
 
 # =================================================================
 # RESPONSE SCHEMA (GET)
@@ -41,7 +40,8 @@ class ActivityLogUpdate(BaseModel):
 class ActivityLogSchema(ActivityLogBase):
     """Full database representation of an activity log entry."""
     id: int
-    timestamp: str
+    timestamp: Any
+    workout_session_id: Any = None
 
     class Config:
         from_attributes = True

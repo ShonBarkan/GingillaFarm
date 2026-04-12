@@ -14,30 +14,50 @@ TABLE_NAME = "activity_logs"
 
 
 # =================================================================
-# CREATE OPERATIONS (Individual & Bulk)
+# INTERNAL UTILITIES
 # =================================================================
 
+def _parse_log_data(log: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Parses raw database row into a format compatible with Pydantic schemas.
+    """
+    # 1. Parse performance_data
+    if "performance_data" in log and isinstance(log["performance_data"], str):
+        try:
+            log["performance_data"] = json.loads(log["performance_data"])
+        except (json.JSONDecodeError, TypeError) as e:
+            log["performance_data"] = {}
+
+    # 2. Handle workout_session_id - This is where your error likely triggers
+    # If the database returns None/null, we ensure it's explicitly None for Pydantic
+    if "workout_session_id" in log:
+        val = log["workout_session_id"]
+        if val is None:
+            log["workout_session_id"] = None
+        else:
+            try:
+                log["workout_session_id"] = int(val)
+            except:
+                log["workout_session_id"] = None
+
+    return log
+
+
+# =================================================================
+# CREATE OPERATIONS
+# =================================================================
 
 def create_activity_logs(data: List[Any]):
-    """
-    Inserts activity logs into the database.
-    Handles both Pydantic models and raw dictionaries for internal building communication.
-    """
     results = []
     for item in data:
-        # 1. Flexible Type Handling
         if hasattr(item, "model_dump"):
-            # If it's a Pydantic model (from Route)
             item_dict = item.model_dump(exclude_unset=True)
         else:
-            # If it's already a dict (from Session Controller)
             item_dict = item
 
-        # 2. Silo Compatibility: Stringify nested JSON objects
         if "performance_data" in item_dict and isinstance(item_dict["performance_data"], (dict, list)):
             item_dict["performance_data"] = json.dumps(item_dict["performance_data"])
 
-        # 3. DB Manager Request
         payload = {
             "action": "insert",
             "table": TABLE_NAME,
@@ -47,57 +67,51 @@ def create_activity_logs(data: List[Any]):
         response = requests.post(f"{DB_MANAGER_URL}/query", json=payload)
 
         if response.status_code != 200:
-            print(f"Silo Error in Activity Logs: {response.text}")
             raise HTTPException(status_code=response.status_code, detail=response.text)
 
-        # 4. Collect results
-        results.extend(response.json().get("data", []))
+        raw_results = response.json().get("data", [])
+        for res in raw_results:
+            results.append(_parse_log_data(res))
 
     return {"status": "success", "data": results}
 
 
 # =================================================================
-# READ OPERATIONS (With Limit & Filters)
+# READ OPERATIONS
 # =================================================================
 
 def get_activity_logs(filters: Dict[str, Any] = None, limit: Optional[int] = None):
-    """
-    Retrieves performance logs.
-    Action: 'select' -> 'find' to match Silo translator.
-    """
     payload = {
         "action": "find",
         "table": TABLE_NAME,
         "filters": filters or {},
         "limit": limit
     }
+
     response = requests.post(f"{DB_MANAGER_URL}/query", json=payload)
 
     if response.status_code != 200:
         raise HTTPException(status_code=response.status_code, detail=response.text)
 
-    # Return the clean list from the 'data' key
-    return response.json().get("data", [])
+    raw_data = response.json().get("data", [])
+
+    parsed_data = [_parse_log_data(log) for log in raw_data]
+    return parsed_data
 
 
 def get_activity_log_by_id(log_id: int):
-    """
-    Fetches a specific log entry by its primary key ID.
-    """
     payload = {
         "action": "find",
         "table": TABLE_NAME,
         "filters": {"id": log_id}
     }
     response = requests.post(f"{DB_MANAGER_URL}/query", json=payload)
-
-    result_json = response.json()
-    data = result_json.get("data", [])
+    data = response.json().get("data", [])
 
     if not data:
         raise HTTPException(status_code=404, detail="Activity log entry not found")
 
-    return data[0]
+    return _parse_log_data(data[0])
 
 
 # =================================================================
@@ -105,21 +119,14 @@ def get_activity_log_by_id(log_id: int):
 # =================================================================
 
 def update_activity_log(log_id: int, data: Any):
-    """
-    Updates an activity log.
-    Ensures performance_data is stringified for the Silo.
-    """
-    # 1. Handle both Pydantic and Dict
     if hasattr(data, "model_dump"):
         item_dict = data.model_dump(exclude_unset=True)
     else:
         item_dict = data
 
-    # 2. CRITICAL: Stringify performance_data for SQL compatibility
     if "performance_data" in item_dict and isinstance(item_dict["performance_data"], (dict, list)):
         item_dict["performance_data"] = json.dumps(item_dict["performance_data"])
 
-    # 3. Build the payload for DB Manager
     payload = {
         "action": "update",
         "table": TABLE_NAME,
@@ -130,20 +137,20 @@ def update_activity_log(log_id: int, data: Any):
     response = requests.post(f"{DB_MANAGER_URL}/query", json=payload)
 
     if response.status_code != 200:
-        print(f"Silo Update Error: {response.text}")
         raise HTTPException(status_code=response.status_code, detail=response.text)
 
-    return response.json()
+    result = response.json()
+    if "data" in result and result["data"]:
+        result["data"] = [_parse_log_data(log) for log in result["data"]]
+
+    return result
 
 
 # =================================================================
-# DELETE OPERATIONS (Individual & Bulk)
+# DELETE OPERATIONS
 # =================================================================
 
 def delete_activity_logs(ids: List[int]):
-    """
-    Deletes activity logs. Loops through IDs since Silo expects single filter matches.
-    """
     deleted_count = 0
     for row_id in ids:
         payload = {

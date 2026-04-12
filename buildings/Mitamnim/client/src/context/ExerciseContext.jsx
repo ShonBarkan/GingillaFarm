@@ -36,10 +36,13 @@ export const ExerciseProvider = ({ children }) => {
         refreshGlobalExercises();
     }, [refreshGlobalExercises]);
 
-    const fetchHistory = useCallback(async (exerciseId, limit = 50) => {
+    /**
+     * Updated fetchHistory to support date filtering
+     */
+    const fetchHistory = useCallback(async (exerciseId, limit = 50, startDate = null, endDate = null) => {
         setLoading(true);
         try {
-            const data = await mitamnimService.getExerciseHistory(exerciseId, limit);
+            const data = await mitamnimService.getExerciseHistory(exerciseId, limit, startDate, endDate);
             setLogs(data || []);
         } catch (error) {
             console.error(`Error fetching history for exercise ${exerciseId}:`, error);
@@ -49,15 +52,19 @@ export const ExerciseProvider = ({ children }) => {
         }
     }, []);
 
-    const fetchExerciseData = useCallback(async (id) => {
+    /**
+     * Updated fetchExerciseData to ensure history is also filtered by range
+     */
+    const fetchExerciseData = useCallback(async (id, startDate = null, endDate = null) => {
         if (!id) return;
         setLoading(true);
         try {
             const [node, activeParams, exerciseStats, historyData] = await Promise.all([
                 mitamnimService.getExerciseNodeById(id),
                 mitamnimService.getActiveParams({ exercise_id: id }),
-                mitamnimService.getExerciseStats(id),
-                mitamnimService.getExerciseHistory(id)
+                mitamnimService.getExerciseStats(id, startDate, endDate),
+                // Fix: passing startDate and endDate to history fetch
+                mitamnimService.getExerciseHistory(id, 50, startDate, endDate)
             ]);
 
             setExercise({
@@ -74,13 +81,8 @@ export const ExerciseProvider = ({ children }) => {
         }
     }, []);
 
-    useEffect(() => {
-        if (exercise?.id) {
-            fetchExerciseData(exercise.id);
-        }
-    }, [refreshTrigger, exercise?.id, fetchExerciseData]); 
-
     const refreshAll = useCallback(async () => {
+        // Simple artificial delay for visual feedback
         await new Promise(resolve => setTimeout(resolve, 400));
         setRefreshTrigger(prev => prev + 1);
     }, []);

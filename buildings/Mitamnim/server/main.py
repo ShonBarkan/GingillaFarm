@@ -16,7 +16,8 @@ from routes import (
     exercise_assets,
     goals,
     stats,
-    activity_log_history
+    activity_log_history,
+    dashboard
 )
 
 load_dotenv()
@@ -144,6 +145,7 @@ app.include_router(exercise_assets.router)
 app.include_router(goals.router)
 app.include_router(stats.router)
 app.include_router(activity_log_history.router)
+app.include_router(dashboard.router)
 
 # --- Health Check ---
 @app.get("/health")

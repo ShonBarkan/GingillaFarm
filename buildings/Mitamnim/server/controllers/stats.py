@@ -1,57 +1,136 @@
-import os, requests, json
+import os, requests, json, operator
 from typing import List, Dict, Any, Optional
 from .exercise_tree import get_exercise_tree
 from .activity_log_history import _get_all_descendant_ids
 
+
 DB_MANAGER_URL = os.getenv("DB_MANAGER_URL", "http://shon-comp:8000")
+
+# --- Configuration Engine ---
+STATS_CONFIG = {
+    "derived_parameters": [
+        {
+            "source": "בריכות",
+            "target": "מרחק",
+            "multiplier": 25,
+            "unit": "מטרים"
+        }
+    ],
+    "combinations": [
+        {
+            "sources": ["משקל", "חזרות"],
+            "target": "נפח כולל (משקל X חזרות)",
+            "operation": operator.mul,
+            "unit": "ק״ג",
+            "include_sources": [ "חזרות"],
+            "stats_source": "משקל"
+        }
+    ]
+}
 
 
 def _get_parameter_units() -> Dict[str, str]:
-    """
-    Helper to fetch all parameters and create a name-to-unit mapping.
-    """
     try:
         payload = {"action": "find", "table": "parameters", "filters": {}}
         res = requests.post(f"{DB_MANAGER_URL}/query", json=payload).json()
         params_data = res.get("data", [])
-        # Create a map: {"משקל": "ק"ג", "חזרות": "", ...}
         return {p['name'].strip(): p.get('unit', '') for p in params_data if p.get('name')}
     except Exception as e:
         print(f"Error fetching parameter units: {e}")
         return {}
 
 
-def calculate_exercise_stats(exercise_id: int) -> Dict[str, Any]:
-    # 1. Fetch Tree Nodes
+def _normalize_performance_data(perf_data: Dict[str, Any], units_map: Dict[str, str]) -> Dict[
+    str, Dict[str, List[float]]]:
+    """
+    Normalization engine to handle derived parameters and combinations.
+    Returns a mapping of parameter names to their total and stats values.
+    """
+    normalized = {}
+    for k, v in perf_data.items():
+        if not k or k == "null":
+            continue
+        try:
+            normalized[k.strip()] = float(v)
+        except (ValueError, TypeError):
+            continue
+
+    # Initial structure for processed stats: { "param_name": {"total_vals": [], "stats_vals": [] } }
+    processed_stats = {k: {"total_vals": [v], "stats_vals": [v]} for k, v in normalized.items()}
+
+    # 1. Process derived parameters (e.g., Pools -> Distance)
+    for rule in STATS_CONFIG["derived_parameters"]:
+        src = rule["source"]
+        if src in normalized:
+            target = rule["target"]
+            val = normalized[src] * rule["multiplier"]
+            processed_stats[target] = {"total_vals": [val], "stats_vals": [val]}
+            units_map[target] = rule["unit"]
+
+    # 2. Process combinations (e.g., Weight * Reps -> Volume)
+    for rule in STATS_CONFIG["combinations"]:
+        srcs = rule["sources"]
+        if all(s in normalized for s in srcs):
+            target = rule["target"]
+            val1, val2 = normalized[srcs[0]], normalized[srcs[1]]
+
+            combined_val = rule["operation"](val1, val2)
+
+            # Use specific stats_source for Max/Avg calculation, default to combined_val
+            stats_val = normalized.get(rule["stats_source"], combined_val)
+
+            processed_stats[target] = {
+                "total_vals": [combined_val],
+                "stats_vals": [stats_val]
+            }
+            units_map[target] = rule["unit"]
+
+            # Remove original source parameters unless explicitly included
+            for s in srcs:
+                if s not in rule.get("include_sources", []):
+                    processed_stats.pop(s, None)
+
+    return processed_stats
+
+
+def calculate_exercise_stats(exercise_id: int, start_date: Optional[str] = None, end_date: Optional[str] = None) -> \
+Dict[str, Any]:
     all_nodes = get_exercise_tree({})
     current_node = next((n for n in all_nodes if n['id'] == exercise_id), {})
     relevant_ids = _get_all_descendant_ids(exercise_id, all_nodes)
-
-    # Fetch units mapping
     units_map = _get_parameter_units()
 
-    # 2. Fetch logs
     try:
         payload = {"action": "find", "table": "activity_logs", "filters": {}, "limit": 1000}
         logs_res = requests.post(f"{DB_MANAGER_URL}/query", json=payload).json()
         all_logs = logs_res.get("data", [])
-        logs = [log for log in all_logs if log.get("exercise_id") in relevant_ids]
-    except Exception as e:
-        print(f"Stats Fetch Error: {e}")
-        logs = []
 
-    if not logs:
+        filtered_logs = []
+        for log in all_logs:
+            if log.get("exercise_id") not in relevant_ids:
+                continue
+            ts = log.get("timestamp", "").split('T')[0]
+            if start_date and ts < start_date:
+                continue
+            if end_date and ts > end_date:
+                continue
+            filtered_logs.append(log)
+    except Exception as e:
+        print(f"Stats Error: {e}")
+        filtered_logs = []
+
+    if not filtered_logs:
         return {
             "exercise_id": exercise_id,
             "exercise_name": current_node.get('name', "Unknown"),
             "parameters": [],
-            "total_logs_count": 0,
-            "last_session_date": None
+            "total_logs_count": 0
         }
 
-    # 3. Aggregate Data with Clean Keys
-    stats_map = {}
-    for log in logs:
+    # Data collection: { "param_name": { "totals": [], "stats": [] } }
+    master_map = {}
+
+    for log in filtered_logs:
         perf_data = log.get("performance_data", {})
         if isinstance(perf_data, str):
             try:
@@ -59,58 +138,42 @@ def calculate_exercise_stats(exercise_id: int) -> Dict[str, Any]:
             except:
                 perf_data = {}
 
-        if not isinstance(perf_data, dict):
-            continue
+        normalized_entry = _normalize_performance_data(perf_data, units_map)
 
-        for param_name, value in perf_data.items():
-            if not param_name or not str(param_name).strip() or param_name == "null":
-                continue
+        for p_name, data in normalized_entry.items():
+            if p_name not in master_map:
+                master_map[p_name] = {"totals": [], "stats": []}
+            master_map[p_name]["totals"].extend(data["total_vals"])
+            master_map[p_name]["stats"].extend(data["stats_vals"])
 
-            try:
-                num_val = float(value)
-                clean_name = str(param_name).strip()
-                if clean_name not in stats_map:
-                    stats_map[clean_name] = []
-                stats_map[clean_name].append(num_val)
-            except (ValueError, TypeError):
-                continue
-
-    # 4. Build Schema-compliant stats
+    # Build final response object
     final_params_stats = []
-    for param_name, values in stats_map.items():
-        if not values:
-            continue
-
-        total = sum(values)
-        count = len(values)
+    for p_name, values in master_map.items():
+        total_sum = sum(values["totals"])
+        stats_list = values["stats"]
 
         final_params_stats.append({
             "parameter_id": 0,
-            "name": param_name,
-            "unit": units_map.get(param_name, ""),  # משיכת היחידה מהמפה
-            "max_value": max(values),
-            "avg_value": round(total / count, 2),
-            "total_value": total,
-            "count": count
+            "name": p_name,
+            "unit": units_map.get(p_name, ""),
+            "max_value": max(stats_list) if stats_list else 0,
+            "avg_value": round(sum(stats_list) / len(stats_list), 2) if stats_list else 0,
+            "total_value": total_sum,
+            "count": len(values["totals"])
         })
-
-    timestamps = [l['timestamp'] for l in logs if l.get('timestamp')]
 
     return {
         "exercise_id": exercise_id,
         "exercise_name": current_node.get('name', "Unknown"),
-        "last_session_date": max(timestamps) if timestamps else None,
+        "last_session_date": max([l['timestamp'] for l in filtered_logs]) if filtered_logs else None,
         "parameters": final_params_stats,
-        "total_logs_count": len(logs),
+        "total_logs_count": len(filtered_logs),
         "descendant_count": len(relevant_ids) - 1
     }
-
 
 def get_trend_data(exercise_id: int, start_date: str = None, end_date: str = None):
     all_nodes = get_exercise_tree({})
     relevant_ids = _get_all_descendant_ids(exercise_id, all_nodes)
-
-    # Fetch units mapping
     units_map = _get_parameter_units()
 
     try:
@@ -128,7 +191,6 @@ def get_trend_data(exercise_id: int, start_date: str = None, end_date: str = Non
                 continue
 
             ts_date = full_ts.split('T')[0]
-
             if start_date and ts_date < start_date:
                 continue
             if end_date and ts_date > end_date:
@@ -142,14 +204,9 @@ def get_trend_data(exercise_id: int, start_date: str = None, end_date: str = Non
                     perf_data = {}
 
             if isinstance(perf_data, dict):
-                # כאן אנחנו מזריקים את ה-unit לתוך ה-performance_data או מוסיפים שדה metadata
                 clean_perf = {k.strip(): v for k, v in perf_data.items() if k and str(k).strip()}
-
-                # הוספת יחידות לכל פרמטר בתוך האובייקט כדי שהפרונטנד ידע להציג בגרף
-                # אנחנו יוצרים מבנה שכולל את היחידה עבור כל לוג
                 log["performance_data"] = clean_perf
                 log["parameter_units"] = {k: units_map.get(k, "") for k in clean_perf.keys()}
-
                 data.append(log)
 
         return sorted(data, key=lambda x: x.get('timestamp', ''))

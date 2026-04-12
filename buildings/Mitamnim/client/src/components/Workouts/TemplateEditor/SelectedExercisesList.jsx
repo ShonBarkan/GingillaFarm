@@ -39,17 +39,18 @@ const SelectedExercisesList = ({ exercises, setExercises }) => {
     if (exercises.length === 0) return null;
 
     return (
-        <div className="w-full bg-gray-50/30 backdrop-blur-sm border border-gray-100/50 p-4 md:p-6 rounded-[3rem] space-y-6 animate-in fade-in duration-700 shadow-sm" dir="rtl">
-            {/* Header with Counter */}
-            <div className="flex items-center justify-between px-6 py-4 bg-white border border-gray-100/50 rounded-3xl shadow-sm mx-2">
+        <div className="bg-white/80 backdrop-blur-md p-8 rounded-[3.5rem] border border-gray-100/50 shadow-sm flex flex-col gap-8 animate-in fade-in duration-700 w-full" dir="rtl">
+            
+            {/* Header with Counter - Simplified according to project standard */}
+            <div className="flex items-center justify-between pb-6 border-b border-gray-100/50">
                 <div className="flex flex-col text-right">
-                    <h3 className="text-xl font-black text-gray-900 tracking-tighter leading-tight">מבנה האימון</h3>
-                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">גרור תרגילים כדי לשנות את סדר הביצוע</p>
+                    <h3 className="text-2xl font-black text-gray-900 tracking-tighter leading-none">מבנה האימון</h3>
+                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-2">גרור תרגילים כדי לשנות את סדר הביצוע</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <span className="bg-blue-600 text-white text-[10px] font-black px-4 py-1.5 rounded-full shadow-lg shadow-blue-100 uppercase tracking-widest">
+                    <div className="bg-blue-600 text-white text-[10px] font-black px-5 py-2 rounded-full shadow-lg shadow-blue-500/20 uppercase tracking-widest">
                         {exercises.length} תרגילים נבחרו
-                    </span>
+                    </div>
                 </div>
             </div>
             
@@ -58,19 +59,18 @@ const SelectedExercisesList = ({ exercises, setExercises }) => {
                 axis="y" 
                 values={exercises} 
                 onReorder={setExercises} 
-                className="space-y-3"
+                className="space-y-4"
             >
                 <AnimatePresence mode="popLayout" initial={false}>
                     {exercises.map((ex) => (
                         <Reorder.Item 
                             key={ex.instanceId} 
                             value={ex} 
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
                             whileDrag={{ 
                                 scale: 1.02,
-                                boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.05)",
                                 transition: { duration: 0.1 }
                             }}
                             layout

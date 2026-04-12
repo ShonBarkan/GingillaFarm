@@ -4,8 +4,8 @@ const TimeRangePicker = ({ currentRange, onRangeChange }) => {
     const ranges = [
         { id: 'all', label: 'הכל' },
         { id: 'day', label: 'היום' },
-        { id: 'week', label: 'שבוע' },
-        { id: 'month', label: 'חודש' },
+        { id: 'week', label: 'השבוע' },
+        { id: 'month', label: 'החודש' },
     ];
 
     return (

@@ -16,7 +16,7 @@ const BG_CONFIG = {
 const EXERCISE_KEYWORDS = {
     JUDO: ["ג'ודו", 'גודו', 'Judo', 'מזרן', 'קרב', 'סמבו', 'Sambo'],
     STRENGTH: ['פארק', 'מתקני רחוב', 'מתח', 'מקבילים'],
-    SWIMMING: ['שחייה', 'בריכה', 'חתירה', 'Swim', 'Pool'],
+    SWIMMING: ['שחייה', 'בריכה', 'חתירה', 'Swim', 'Pool', 'חזה'],
     GYM: ['משקולות', 'חדר כושר', 'דדליפט', 'סקוואט', 'לחיצת חזה', 'Gym', 'Bench Press'],
     BODYWEIGHT: ['משקל גוף', 'יוגה', 'פילאטיס', 'שכיבות סמיכה', 'Bodyweight', 'Yoga', 'Push up']
 };

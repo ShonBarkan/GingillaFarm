@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
+
 # =================================================================
 # RESPONSE SCHEMA
 # =================================================================
@@ -13,26 +14,34 @@ class ActivityLogHistorySchema(BaseModel):
     """
     id: int
     exercise_id: int
-    exercise_name: Optional[str] = None  # Enriched data from a join or separate fetch
-    workout_session_id: int
+    exercise_name: Optional[str] = None
+
+    # CRITICAL FIX: Changed from int to Any and allowed None.
+    # This prevents ResponseValidationError when workout_session_id is null.
+    workout_session_id: Any = Field(default=None, nullable=True)
+
     performance_data: Dict[str, Any] = Field(default_factory=dict)
-    timestamp: datetime
-    is_manual: bool
+
+    # Using Any for timestamp ensures compatibility with both strings and datetime objects
+    # returning from different database managers/silos.
+    timestamp: Any
+
+    is_manual: bool = True
 
     class Config:
         from_attributes = True
-        # Useful for Swagger documentation examples
         json_schema_extra = {
             "example": {
                 "id": 101,
                 "exercise_id": 4,
                 "exercise_name": "Pullups",
-                "workout_session_id": 2,
+                "workout_session_id": None,
                 "performance_data": {"reps": "12", "weight": "0"},
                 "timestamp": "2026-04-10T15:00:00",
-                "is_manual": False
+                "is_manual": True
             }
         }
+
 
 # =================================================================
 # FILTER SCHEMA

@@ -22,20 +22,26 @@ def create_workout_templates(data: List[WorkoutTemplateCreate]):
 def get_workout_templates(
         parent_exercise_id: Optional[List[int]] = Query(
             None,
-            description="Filter templates by one or more parent exercise IDs (e.g. ?parent_exercise_id=1&parent_exercise_id=2)"
+            description="Filter by specific exercise IDs"
         ),
-        limit: Optional[int] = Query(None, description="Limit the number of templates returned")
+        recursive_id: Optional[int] = Query(
+            None,
+            description="Find templates for this ID and all its descendants"
+        ),
+        limit: Optional[int] = Query(None, description="Limit results")
 ):
     """
-    Retrieve workout templates. Supports single or multiple parent exercise IDs.
+    Retrieve workout templates.
+    Use 'recursive_id' to get templates for an exercise and its entire sub-tree.
     """
+    if recursive_id:
+        return controller.get_workout_templates(recursive_exercise_id=recursive_id, limit=limit)
+
     filters = {}
     if parent_exercise_id:
-        # הקונטרולר המעודכן יודע לזהות אם זו רשימה ולהשתמש ב-action: in
         filters["parent_exercise_id"] = parent_exercise_id
 
     return controller.get_workout_templates(filters=filters, limit=limit)
-
 
 @router.get("/{template_id}", response_model=WorkoutTemplateSchema)
 def get_workout_template(template_id: int):

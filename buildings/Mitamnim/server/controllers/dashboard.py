@@ -11,13 +11,29 @@ DB_MANAGER_URL = os.getenv("DB_MANAGER_URL", "http://shon-comp:8000")
 # Configuration for the featured statistics - Name based lookup
 FEATURED_EXERCISES_CONFIG = [
     {
-        "exercise_name": "כושר כללי",
-        "params": ["נפח כולל (משקל X חזרות)"]
+        "exercise_name": "מתח",
+        "params": ["חזרות"]
+    },
+    {
+        "exercise_name": "שחייה",
+        "params": ["בריכות"]
     },
     {
         "exercise_name": "ג'ודו",
-        "params": ["קרבות רצופים", "זמן"]
-    }
+        "params": ["קרבות","קרבות רצופים", "זמן"]
+    },
+    {
+        "exercise_name": "חדר כושר",
+        "params": ["נפח כולל (משקל X חזרות)"]
+    },
+    {
+        "exercise_name": "שכיבות סמיכה",
+        "params": ["חזרות"]
+    },
+    {
+        "exercise_name": "כפיפות בטן",
+        "params": ["חזרות"]
+    },
 ]
 
 

@@ -16,7 +16,7 @@ FEATURED_EXERCISES_CONFIG = [
     },
     {
         "exercise_name": "שחייה",
-        "params": ["בריכות"]
+        "params": ["בריכות","מרחק"]
     },
     {
         "exercise_name": "ג'ודו",
@@ -40,7 +40,8 @@ FEATURED_EXERCISES_CONFIG = [
 def get_dashboard_summary(start_date: Optional[str] = None, end_date: Optional[str] = None) -> Dict[str, Any]:
     now = datetime.now()
     today_str = now.strftime("%Y-%m-%d")
-    day_of_week = now.weekday()
+
+    day_of_week = (now.weekday() + 1) % 7
 
     return {
         "date": today_str,

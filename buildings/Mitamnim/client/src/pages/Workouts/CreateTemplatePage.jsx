@@ -29,7 +29,7 @@ const CreateTemplatePage = () => {
 
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");
-    const [selectedParentId, setSelectedParentId] = useState("");
+    const [selectedParentId, setSelectedParentId] = useState("all");
     const [selectedExercises, setSelectedExercises] = useState([]);
     const [sessionRequiredParams, setSessionRequiredParams] = useState([]);
     
@@ -57,7 +57,7 @@ const CreateTemplatePage = () => {
                     if (currentTemplate) {
                         setName(currentTemplate.name);
                         setDescription(currentTemplate.description || "");
-                        setSelectedParentId(currentTemplate.parent_exercise_id?.toString() || "");
+                        setSelectedParentId(currentTemplate.parent_exercise_id?.toString() || "all");
                         setExpectedTime(currentTemplate.expected_time || "");
                         setScheduledDays(currentTemplate.scheduled_days || []);
                         
@@ -167,7 +167,7 @@ const CreateTemplatePage = () => {
         const templateData = {
             name,
             description,
-            parent_exercise_id: parseInt(selectedParentId),
+            parent_exercise_id: selectedParentId === "all" ? null : parseInt(selectedParentId),
             expected_time: expectedTime,
             scheduled_days: scheduledDays,
             exercises_config: selectedExercises,
@@ -239,20 +239,12 @@ const CreateTemplatePage = () => {
                 onClearExercises={() => setSelectedExercises([])}
             />
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+            <div className="grid grid-cols-1 lg:grid-cols gap-8 items-start">
                 <TemplateScheduleConfig 
                     expectedTime={expectedTime}
                     setExpectedTime={setExpectedTime}
                     scheduledDays={scheduledDays}
                     onToggleDay={toggleDay}
-                />
-
-                <SessionParamsConfig 
-                    sessionParams={sessionRequiredParams}
-                    allSystemParams={allSystemParams}
-                    onAdd={handleAddSessionParam}
-                    onRemove={handleRemoveSessionParam}
-                    onUpdate={handleUpdateSessionParamDefault}
                 />
             </div>
 

@@ -1,35 +1,23 @@
 import json
 import os
 import requests
-from typing import List, Optional, Dict, Any
+import pytz
+from datetime import datetime
+from typing import List, Any, Dict, Optional
 from fastapi import HTTPException
-from models.activity_logs import ActivityLogCreate, ActivityLogUpdate
-
-# =================================================================
-# CONFIGURATION
-# =================================================================
 
 DB_MANAGER_URL = os.getenv("DB_MANAGER_URL", "http://shon-comp:8000")
 TABLE_NAME = "activity_logs"
+ISRAEL_TZ = pytz.timezone("Asia/Jerusalem")
 
-
-# =================================================================
-# INTERNAL UTILITIES
-# =================================================================
 
 def _parse_log_data(log: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Parses raw database row into a format compatible with Pydantic schemas.
-    """
-    # 1. Parse performance_data
     if "performance_data" in log and isinstance(log["performance_data"], str):
         try:
             log["performance_data"] = json.loads(log["performance_data"])
-        except (json.JSONDecodeError, TypeError) as e:
+        except (json.JSONDecodeError, TypeError):
             log["performance_data"] = {}
 
-    # 2. Handle workout_session_id - This is where your error likely triggers
-    # If the database returns None/null, we ensure it's explicitly None for Pydantic
     if "workout_session_id" in log:
         val = log["workout_session_id"]
         if val is None:
@@ -43,10 +31,6 @@ def _parse_log_data(log: Dict[str, Any]) -> Dict[str, Any]:
     return log
 
 
-# =================================================================
-# CREATE OPERATIONS
-# =================================================================
-
 def create_activity_logs(data: List[Any]):
     results = []
     for item in data:
@@ -57,6 +41,15 @@ def create_activity_logs(data: List[Any]):
 
         if "performance_data" in item_dict and isinstance(item_dict["performance_data"], (dict, list)):
             item_dict["performance_data"] = json.dumps(item_dict["performance_data"])
+
+        if not item_dict.get("timestamp"):
+            item_dict["timestamp"] = datetime.now(ISRAEL_TZ).isoformat()
+        else:
+            try:
+                dt = datetime.fromisoformat(item_dict["timestamp"].replace('Z', '+00:00'))
+                item_dict["timestamp"] = dt.astimezone(ISRAEL_TZ).isoformat()
+            except:
+                item_dict["timestamp"] = datetime.now(ISRAEL_TZ).isoformat()
 
         payload = {
             "action": "insert",
@@ -76,10 +69,6 @@ def create_activity_logs(data: List[Any]):
     return {"status": "success", "data": results}
 
 
-# =================================================================
-# READ OPERATIONS
-# =================================================================
-
 def get_activity_logs(filters: Dict[str, Any] = None, limit: Optional[int] = None):
     payload = {
         "action": "find",
@@ -87,16 +76,11 @@ def get_activity_logs(filters: Dict[str, Any] = None, limit: Optional[int] = Non
         "filters": filters or {},
         "limit": limit
     }
-
     response = requests.post(f"{DB_MANAGER_URL}/query", json=payload)
-
     if response.status_code != 200:
         raise HTTPException(status_code=response.status_code, detail=response.text)
-
     raw_data = response.json().get("data", [])
-
-    parsed_data = [_parse_log_data(log) for log in raw_data]
-    return parsed_data
+    return [_parse_log_data(log) for log in raw_data]
 
 
 def get_activity_log_by_id(log_id: int):
@@ -107,16 +91,10 @@ def get_activity_log_by_id(log_id: int):
     }
     response = requests.post(f"{DB_MANAGER_URL}/query", json=payload)
     data = response.json().get("data", [])
-
     if not data:
         raise HTTPException(status_code=404, detail="Activity log entry not found")
-
     return _parse_log_data(data[0])
 
-
-# =================================================================
-# UPDATE OPERATIONS
-# =================================================================
 
 def update_activity_log(log_id: int, data: Any):
     if hasattr(data, "model_dump"):
@@ -133,22 +111,14 @@ def update_activity_log(log_id: int, data: Any):
         "filters": {"id": log_id},
         "data": item_dict
     }
-
     response = requests.post(f"{DB_MANAGER_URL}/query", json=payload)
-
     if response.status_code != 200:
         raise HTTPException(status_code=response.status_code, detail=response.text)
-
     result = response.json()
     if "data" in result and result["data"]:
         result["data"] = [_parse_log_data(log) for log in result["data"]]
-
     return result
 
-
-# =================================================================
-# DELETE OPERATIONS
-# =================================================================
 
 def delete_activity_logs(ids: List[int]):
     deleted_count = 0
@@ -161,5 +131,4 @@ def delete_activity_logs(ids: List[int]):
         response = requests.post(f"{DB_MANAGER_URL}/query", json=payload)
         if response.status_code == 200:
             deleted_count += 1
-
     return {"status": "deleted", "count": deleted_count, "ids": ids}

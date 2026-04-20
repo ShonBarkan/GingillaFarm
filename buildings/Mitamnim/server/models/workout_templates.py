@@ -10,7 +10,7 @@ from .active_params import ActiveParameterCreate, ActiveParameterSchema
 class WorkoutTemplateBase(BaseModel):
     name: str
     description: Optional[str] = None
-    parent_exercise_id: int
+    parent_exercise_id: Optional[int] = None # Changed from int to Optional[int]
     exercises_config: List[Dict[str, Any]]
     expected_time: Optional[str] = None
     scheduled_days: Optional[List[int]] = None

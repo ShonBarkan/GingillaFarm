@@ -8,11 +8,19 @@ const ExerciseSelector = ({ onSelect, parentId, isFetchingExercise }) => {
     const [searchQuery, setSearchQuery] = useState("");
 
     /**
-     * Recursive logic to find selectable descendants
+     * logic to find selectable exercises based on the selected category
      */
     const availableExercises = useMemo(() => {
         if (!parentId || allExercises.length === 0) return [];
 
+        // CASE 1: "All" is selected - Show every leaf node in the system
+        if (parentId === 'all') {
+            return allExercises.filter(ex => 
+                !allExercises.some(other => other.parent_id === ex.id)
+            );
+        }
+
+        // CASE 2: Specific category selected - Use recursive queue to find descendant leaf nodes
         const descendants = [];
         const queue = [parseInt(parentId)];
         const visited = new Set();
@@ -60,7 +68,9 @@ const ExerciseSelector = ({ onSelect, parentId, isFetchingExercise }) => {
                     <div className="flex flex-col text-right">
                         <h3 className="text-xl font-black text-gray-900 leading-none tracking-tighter">בחירת תרגילים</h3>
                         <p className="text-[10px] text-gray-400 font-bold mt-2 uppercase tracking-widest">
-                            הוסף תרגילים מהקטגוריה הנבחרת
+                            {parentId === 'all' 
+                                ? 'כל התרגילים הזמינים בחווה' 
+                                : 'הוסף תרגילים מהקטגוריה הנבחרת'}
                         </p>
                     </div>
                     <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest bg-blue-50 px-4 py-1.5 rounded-full border border-blue-100/30">

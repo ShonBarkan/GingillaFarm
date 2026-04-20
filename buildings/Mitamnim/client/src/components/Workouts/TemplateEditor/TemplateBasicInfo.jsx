@@ -40,7 +40,6 @@ const TemplateBasicInfo = ({ name, setName, description, setDescription, selecte
     return (
         <div className="bg-white/80 backdrop-blur-md p-8 rounded-[3.5rem] border border-gray-100/50 shadow-sm flex flex-col gap-8 animate-in fade-in duration-700 h-full" dir="rtl">
             
-            {/* 1. Header Section */}
             <div className="flex items-center justify-between pb-6 border-b border-gray-100/50 shrink-0">
                 <div className="flex flex-col text-right">
                     <h3 className="text-2xl font-black text-gray-900 tracking-tighter leading-none">הגדרות בסיס</h3>
@@ -52,10 +51,8 @@ const TemplateBasicInfo = ({ name, setName, description, setDescription, selecte
                 </div>
             </div>
 
-            {/* 2. Form Fields Content */}
             <div className="space-y-8 flex-1">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {/* Category Selector */}
                     <div className="space-y-3 text-right">
                         <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-400 mr-2">
                             <Target size={14} className="text-blue-500" /> קטגוריית על (אימון)
@@ -66,7 +63,7 @@ const TemplateBasicInfo = ({ name, setName, description, setDescription, selecte
                                 onChange={handleParentChange} 
                                 className="w-full bg-gray-100/50 border-2 border-transparent focus:border-blue-200 focus:bg-white rounded-[1.5rem] p-4 pr-5 pl-12 font-black text-gray-900 outline-none transition-all appearance-none cursor-pointer shadow-inner"
                             >
-                                <option value="">בחר קטגוריה...</option>
+                                <option value="all">הכל (כל התרגילים)</option>
                                 {flattenedCategories.map(cat => (
                                     <option key={cat.id} value={cat.id}>
                                         {cat.label}
@@ -79,7 +76,6 @@ const TemplateBasicInfo = ({ name, setName, description, setDescription, selecte
                         </div>
                     </div>
 
-                    {/* Template Name */}
                     <div className="space-y-3 text-right">
                         <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-400 mr-2">
                             <Dumbbell size={14} className="text-blue-500" /> שם השבלונה
@@ -94,7 +90,6 @@ const TemplateBasicInfo = ({ name, setName, description, setDescription, selecte
                     </div>
                 </div>
 
-                {/* Description Field */}
                 <div className="space-y-3 text-right">
                     <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-400 mr-2">
                         <AlignLeft size={14} className="text-blue-500" /> תיאור והערות (אופציונלי)
@@ -108,7 +103,6 @@ const TemplateBasicInfo = ({ name, setName, description, setDescription, selecte
                 </div>
             </div>
 
-            {/* 3. Footer Decor */}
             <div className="pt-4 border-t border-gray-100/50 shrink-0 text-center">
                 <p className="text-[9px] text-gray-300 font-black uppercase tracking-[0.3em] italic opacity-70">
                     Gingilla Farm • Core Metadata Engine

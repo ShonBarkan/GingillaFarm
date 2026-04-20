@@ -8,10 +8,6 @@ export const WorkoutProvider = ({ children }) => {
     const [elapsedTime, setElapsedTime] = useState(0);
     const [isActive, setIsActive] = useState(false);
 
-    /**
-     * 1. HYDRATION & PERSISTENCE
-     * Recover state from localStorage on initial load
-     */
     useEffect(() => {
         const savedState = localStorage.getItem('active_workout_state');
         if (savedState) {
@@ -30,9 +26,6 @@ export const WorkoutProvider = ({ children }) => {
         }
     }, []);
 
-    /**
-     * 2. TIMER LOGIC
-     */
     useEffect(() => {
         let interval = null;
         if (isActive) {
@@ -51,10 +44,6 @@ export const WorkoutProvider = ({ children }) => {
         return () => clearInterval(interval);
     }, [isActive]);
 
-    /**
-     * 3. START WORKOUT
-     * Initializes the session in the DB and then local state
-     */
     const startWorkout = useCallback(async (templateId = null) => {
         try {
             const sessionPayload = {
@@ -91,35 +80,30 @@ export const WorkoutProvider = ({ children }) => {
         }
     }, []);
 
-    /**
-     * 4. FINISH WORKOUT (Atomic & Safe Save)
-     * Steps: 
-     * 1. Send all data (logs + session update) to DB.
-     * 2. If successful, clear local persistence.
-     */
     const finishWorkout = useCallback(async (finalSessionData, allLogs = []) => {
         if (!activeSession) return;
 
         try {
+            // Use the timestamp provided by the modal, or fallback to current time
+            const sessionTimestamp = finalSessionData.start_time || new Date().toISOString();
+            
             const atomicPayload = {
                 end_time: new Date().toISOString(),
                 status: 'completed',
                 notes: finalSessionData.notes || "",
                 summary_data: {
-                    // Merging manual parameters (weight, heart rate, etc.) with workout duration
                     ...(finalSessionData.summary_data || {}),
-                    duration_seconds: elapsedTime
+                    duration_seconds: finalSessionData.duration * 60 || elapsedTime
                 },
                 activity_logs: allLogs.map(log => ({
                     ...log,
-                    timestamp: new Date().toISOString()
+                    // Use the specific log timestamp if provided by the modal
+                    timestamp: log.timestamp || sessionTimestamp 
                 }))
             };
 
-            // Step 1: Save to Database
             await mitamnimService.updateWorkoutSession(activeSession.id, atomicPayload);
 
-            // Step 2: Clear local state ONLY after successful DB update
             setActiveSession(null);
             setIsActive(false);
             setElapsedTime(0);
@@ -128,15 +112,11 @@ export const WorkoutProvider = ({ children }) => {
             
             return { success: true };
         } catch (error) {
-            console.error("Critical: Failed to save workout to DB. Keeping local state.", error);
-            // Re-throw so the UI can notify the user that data is still local
+            console.error("Critical: Failed to save workout to DB.", error);
             throw error; 
         }
     }, [activeSession, elapsedTime]);
 
-    /**
-     * 5. CANCEL WORKOUT
-     */
     const cancelWorkout = useCallback(() => {
         setActiveSession(null);
         setIsActive(false);

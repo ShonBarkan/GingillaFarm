@@ -7,7 +7,6 @@ import {
 const TrendChart = ({ logs, parameters, timeRange }) => {
     const [selectedParam, setSelectedParam] = useState('all');
 
-    // 1. Extract unique parameter names directly from the logs
     const dynamicParams = useMemo(() => {
         const names = new Set();
         (logs || []).forEach(log => {
@@ -21,7 +20,6 @@ const TrendChart = ({ logs, parameters, timeRange }) => {
         }));
     }, [logs, parameters]);
 
-    // 2. Data Processing: Map dynamic JSON fields to chart points
     const chartData = useMemo(() => {
         if (!logs || logs.length === 0) return [];
 
@@ -31,6 +29,7 @@ const TrendChart = ({ logs, parameters, timeRange }) => {
             const dateObj = new Date(log.timestamp);
             if (isNaN(dateObj.getTime())) return;
 
+            // Group by formatted string (hour for 'day' range, date for others)
             const groupKey = timeRange === 'day' 
                 ? dateObj.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })
                 : dateObj.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' });
@@ -46,10 +45,8 @@ const TrendChart = ({ logs, parameters, timeRange }) => {
             Object.entries(perfData).forEach(([key, value]) => {
                 const numVal = parseFloat(value);
                 if (!isNaN(numVal)) {
-                    // Keep the maximum value if multiple logs exist for the same display time
-                    if (!groups[groupKey][key] || numVal > groups[groupKey][key]) {
-                        groups[groupKey][key] = numVal;
-                    }
+                    // Accumulate (Sum) instead of Math.max
+                    groups[groupKey][key] = (groups[groupKey][key] || 0) + numVal;
                 }
             });
         });
@@ -57,7 +54,6 @@ const TrendChart = ({ logs, parameters, timeRange }) => {
         return Object.values(groups).sort((a, b) => a.fullTimestamp - b.fullTimestamp);
     }, [logs, timeRange]);
 
-    // 3. Calculate max values for each parameter to support relative scaling (%)
     const maxValues = useMemo(() => {
         const maxes = {};
         chartData.forEach(entry => {
@@ -94,7 +90,6 @@ const TrendChart = ({ logs, parameters, timeRange }) => {
                 <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={chartData} margin={{ top: 20, right: 10, left: 10, bottom: 20 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                        
                         <XAxis 
                             dataKey="displayTime" 
                             stroke="#d1d5db" 
@@ -102,7 +97,6 @@ const TrendChart = ({ logs, parameters, timeRange }) => {
                             fontWeight="bold"
                             tick={{ dy: 10 }}
                         />
-
                         <YAxis 
                             stroke="#d1d5db" 
                             fontSize={10} 
@@ -110,12 +104,10 @@ const TrendChart = ({ logs, parameters, timeRange }) => {
                             tickFormatter={(value) => selectedParam === 'all' ? `${value}%` : value}
                             domain={selectedParam === 'all' ? [0, 110] : ['auto', 'auto']}
                         />
-
                         <Tooltip 
                             contentStyle={{ borderRadius: '1.5rem', border: 'none', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', padding: '1rem', direction: 'rtl' }}
                             itemStyle={{ fontWeight: 'bold', fontSize: '12px' }}
                         />
-                        
                         <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px', fontSize: '10px', fontWeight: 'bold' }} />
                         
                         {dynamicParams.map((param, index) => {

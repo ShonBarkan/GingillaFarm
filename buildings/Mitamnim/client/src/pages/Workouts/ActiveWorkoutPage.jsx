@@ -8,6 +8,16 @@ import ActiveExerciseCard from '../../components/Workouts/ActiveWorkout/ActiveEx
 import SessionParameterModal from '../../components/Workouts/ActiveWorkout/SessionParameterModal';
 import { Save, XCircle, Plus, Info, Search, X, Loader2 } from 'lucide-react';
 
+/**
+ * Fallback UUID generator for insecure contexts
+ */
+const generateSafeId = () => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return crypto.randomUUID();
+    }
+    return Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+};
+
 const ActiveWorkoutPage = () => {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
@@ -51,9 +61,9 @@ const ActiveWorkoutPage = () => {
                     if (tInfo && tInfo.exercises_config) {
                         initialExercises = tInfo.exercises_config.map(exConfig => ({
                             ...exConfig,
-                            instanceId: crypto.randomUUID(),
+                            instanceId: generateSafeId(),
                             sets: Array.from({ length: exConfig.sets || 1 }).map(() => ({
-                                id: crypto.randomUUID(),
+                                id: generateSafeId(),
                                 completed: false,
                                 performance: (exConfig.parameters || []).reduce((acc, p) => ({
                                     ...acc,
@@ -93,9 +103,9 @@ const ActiveWorkoutPage = () => {
             const newExEntry = {
                 exercise_id: fullEx.id,
                 exercise_name: fullEx.name,
-                instanceId: crypto.randomUUID(),
+                instanceId: generateSafeId(),
                 sets: [{
-                    id: crypto.randomUUID(),
+                    id: generateSafeId(),
                     completed: false,
                     performance: sourceParams.reduce((acc, p) => ({
                         ...acc,
@@ -128,7 +138,7 @@ const ActiveWorkoutPage = () => {
     };
 
     const handleRemoveExercise = (index) => {
-        if (window.confirm("להסיר את התרגיל מהאימון?")) {
+        if (window.confirm("Remove this exercise from the workout?")) {
             setWorkoutData(prev => ({
                 ...prev,
                 exercises: prev.exercises.filter((_, i) => i !== index)
@@ -137,7 +147,7 @@ const ActiveWorkoutPage = () => {
     };
 
     const handleCancel = () => {
-        if (window.confirm("לבטל אימון? כל המידע שלא נשמר יאבד.")) {
+        if (window.confirm("Cancel workout? All unsaved data will be lost.")) {
             cancelWorkout();
             localStorage.removeItem('active_workout_state');
             navigate('/workouts');
@@ -165,7 +175,7 @@ const ActiveWorkoutPage = () => {
             navigate('/workouts');
         } catch (err) {
             console.error("Failed to finish workout:", err);
-            alert("שגיאה בשמירת האימון. נסה שוב.");
+            alert("Error saving workout. Please try again.");
         }
     };
 
@@ -192,17 +202,17 @@ const ActiveWorkoutPage = () => {
                         <button 
                             onClick={handleCancel} 
                             className="p-2.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all active:scale-90"
-                            title="ביטול אימון"
+                            title="Cancel Workout"
                         >
                             <XCircle size={22} />
                         </button>
                         
                         <div className="flex flex-col text-right min-w-0">
                             <h1 className="text-xl md:text-lg font-black text-gray-900 tracking-tighter truncate max-w-[120px] md:max-w-[200px] leading-tight">
-                                {templateInfo?.name || "אימון אישי"}
+                                {templateInfo?.name || "Personal Workout"}
                             </h1>
                             <div className="flex items-center gap-1.5 mt-0.5">
-                                <span className="text-[8px] font-black text-blue-500 uppercase tracking-widest">זמן:</span>
+                                <span className="text-[8px] font-black text-blue-500 uppercase tracking-widest">Time:</span>
                                 <div className="text-xs md:text-sm font-black text-gray-700 tabular-nums">
                                     <WorkoutTimer />
                                 </div>
@@ -210,30 +220,26 @@ const ActiveWorkoutPage = () => {
                         </div>
                     </div>
 
-                    {/* צד שמאל: כפתורי פעולה מהירים */}
                     <div className="flex items-center gap-2">
-                        {/* הוספת תרגיל - כפתור קומפקטי */}
                         <button 
                             onClick={() => setIsAddExerciseOpen(true)}
                             className="flex items-center gap-2 bg-gray-50 text-gray-700 px-3 md:px-4 py-2.5 rounded-2xl font-black border border-gray-100 hover:border-blue-200 hover:bg-white transition-all group active:scale-95 shadow-sm"
                         >
                             <Plus size={16} className="text-blue-600 group-hover:rotate-90 transition-transform" />
-                            <span className="hidden sm:inline text-[11px]">הוסף תרגיל</span>
+                            <span className="hidden sm:inline text-[11px]">Add Exercise</span>
                         </button>
 
-                        {/* סיום אימון - הכפתור המרכזי */}
                         <button 
                             onClick={() => setIsFinishModalOpen(true)}
                             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 md:px-6 md:py-3.5 rounded-2xl font-black shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all active:scale-95 shrink-0"
                         >
                             <Save size={16} />
-                            <span className="text-[11px] md:text-sm">סיום אימון</span>
+                            <span className="text-[11px] md:text-sm">Finish Workout</span>
                         </button>
                     </div>
                 </div>
             </div>
 
-            {/* 3. Reorderable Exercises List */}
             <Reorder.Group 
                 axis="y" 
                 values={workoutData.exercises} 
@@ -266,7 +272,6 @@ const ActiveWorkoutPage = () => {
                 </AnimatePresence>
             </Reorder.Group>
 
-            {/* 4. Full-screen Add Exercise Drawer */}
             <AnimatePresence>
                 {isAddExerciseOpen && (
                     <motion.div 
@@ -277,7 +282,7 @@ const ActiveWorkoutPage = () => {
                         className="fixed inset-0 z-[200] bg-white flex flex-col"
                     >
                         <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-white sticky top-0">
-                            <h3 className="text-2xl font-black text-gray-900 tracking-tighter">הוספת תרגיל</h3>
+                            <h3 className="text-2xl font-black text-gray-900 tracking-tighter">Add Exercise</h3>
                             <button 
                                 onClick={() => setIsAddExerciseOpen(false)} 
                                 className="p-3 bg-gray-100 rounded-2xl text-gray-500 hover:bg-gray-200 transition-colors"
@@ -291,7 +296,7 @@ const ActiveWorkoutPage = () => {
                                 <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors" size={18} />
                                 <input 
                                     type="text"
-                                    placeholder="חפש תרגיל להוספה..."
+                                    placeholder="Search exercise..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     className="w-full bg-white border-2 border-transparent focus:border-blue-100 rounded-2xl py-4 pr-12 pl-4 font-bold text-gray-900 shadow-sm outline-none transition-all"
@@ -308,7 +313,7 @@ const ActiveWorkoutPage = () => {
                                 >
                                     <div className="flex flex-col">
                                         <p className="font-black text-gray-900 group-hover:text-blue-600 transition-colors">{ex.name}</p>
-                                        <p className="text-[9px] text-gray-400 font-black uppercase tracking-widest mt-0.5">לחץ להוספה מהירה</p>
+                                        <p className="text-[9px] text-gray-400 font-black uppercase tracking-widest mt-0.5">Click for quick add</p>
                                     </div>
                                     <div className="p-2 bg-gray-50 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-all">
                                         <Plus size={18} />
@@ -320,7 +325,6 @@ const ActiveWorkoutPage = () => {
                 )}
             </AnimatePresence>
 
-            {/* 5. Finish Workout Modal */}
             <SessionParameterModal 
                 isOpen={isFinishModalOpen}
                 onClose={() => setIsFinishModalOpen(false)}

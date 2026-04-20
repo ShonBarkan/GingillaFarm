@@ -12,27 +12,30 @@ import SelectedExercisesList from '../../components/Workouts/TemplateEditor/Sele
 import SessionParamsConfig from '../../components/Workouts/TemplateEditor/SessionParamsConfig';
 import TemplateScheduleConfig from '../../components/Workouts/TemplateEditor/TemplateScheduleConfig';
 
+const generateSafeId = () => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return crypto.randomUUID();
+    }
+    return Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+};
+
 const CreateTemplatePage = () => {
     const navigate = useNavigate();
     const { id } = useParams();
     const { showToast } = useToast(); 
     const isEditMode = !!id;
 
-    // Global Context Data
     const { allExercises, refreshGlobalExercises } = useExercise();
 
-    // Form State
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");
     const [selectedParentId, setSelectedParentId] = useState("");
     const [selectedExercises, setSelectedExercises] = useState([]);
     const [sessionRequiredParams, setSessionRequiredParams] = useState([]);
     
-    // Scheduling States
     const [expectedTime, setExpectedTime] = useState("");
     const [scheduledDays, setScheduledDays] = useState([]);
     
-    // Data State
     const [allSystemParams, setAllSystemParams] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isFetchingExercise, setIsFetchingExercise] = useState(false);
@@ -60,7 +63,7 @@ const CreateTemplatePage = () => {
                         
                         const exercisesWithIds = (currentTemplate.exercises_config || []).map(ex => ({
                             ...ex,
-                            instanceId: ex.instanceId || crypto.randomUUID()
+                            instanceId: ex.instanceId || generateSafeId()
                         }));
                         setSelectedExercises(exercisesWithIds);
                         setSessionRequiredParams(currentTemplate.session_required_params || []);
@@ -110,7 +113,6 @@ const CreateTemplatePage = () => {
         
         setIsFetchingExercise(true);
         try {
-            // וודא שמימשת את getExerciseById בתוך mitamnimService
             const fullExData = await mitamnimService.getExerciseById(selectedEx.id);
             const sourceParams = fullExData?.active_params || fullExData?.parameters || [];
 
@@ -122,7 +124,7 @@ const CreateTemplatePage = () => {
             }));
 
             const newEntry = {
-                instanceId: crypto.randomUUID(),
+                instanceId: generateSafeId(),
                 exercise_id: selectedEx.id,
                 exercise_name: selectedEx.name,
                 sets: 1,
@@ -199,17 +201,13 @@ const CreateTemplatePage = () => {
             <div className="sticky top-4 z-50 bg-white/80 backdrop-blur-md border border-gray-100/50 px-6 py-4 mb-10 rounded-[3.5rem] shadow-sm animate-in fade-in slide-in-from-top-4 duration-700 max-w-[1600px] mx-auto w-full" dir="rtl">
                 <div className="flex items-center justify-between">
                     
-                    {/* Title Section */}
                     <div className="space-y-1 text-right px-2">
                         <h1 className="text-2xl md:text-4xl font-black text-gray-900 tracking-tighter leading-tight">
                             {isEditMode ? 'עריכת' : 'יצירת'} <span className="text-blue-600">שבלונה</span>
                         </h1>
-                        
                     </div>
 
-                    {/* Actions Section */}
                     <div className="flex items-center gap-3">
-                        {/* Cancel Button - Clean & Minimal */}
                         <button 
                             onClick={() => navigate('/workouts')} 
                             className="p-3.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all"
@@ -218,7 +216,6 @@ const CreateTemplatePage = () => {
                             <X size={24} />
                         </button>
                         
-                        {/* Save Button - Bold Call to Action */}
                         <button 
                             onClick={handleSave} 
                             className="bg-blue-600 text-white px-8 md:px-10 py-3 md:py-4 rounded-[2rem] font-black flex items-center gap-3 shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all active:scale-95 group border border-white/10"

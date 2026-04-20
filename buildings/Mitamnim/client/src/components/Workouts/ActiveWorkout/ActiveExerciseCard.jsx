@@ -4,14 +4,24 @@ import { Reorder, AnimatePresence } from 'framer-motion';
 import SetRow from './SetRow';
 import ExerciseIcon from '../../common/ExerciseIcon';
 
+/**
+ * Fallback UUID generator for insecure contexts
+ */
+const generateSafeId = () => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return crypto.randomUUID();
+    }
+    return Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+};
+
 const ActiveExerciseCard = ({ exercise, index, onUpdateExercise, onRemoveExercise }) => {
     
     // Add Set with default parameters from the first set or template
     const addSet = () => {
         const newSet = {
-            id: crypto.randomUUID(),
+            id: generateSafeId(),
             completed: false,
-            performance: { ...exercise.sets[0]?.performance } || {}
+            performance: exercise.sets[0] ? { ...exercise.sets[0].performance } : {}
         };
         onUpdateExercise(index, { ...exercise, sets: [...exercise.sets, newSet] });
     };
